@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Card';
-import { Sparkles, ArrowLeft, Send, Download, Loader2, FileText, Brain, AlertCircle, RefreshCw } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Sparkles, ArrowLeft, Send, Download, Loader2, FileText, Brain, AlertCircle, RefreshCw, UserPlus, UserCheck, MessageCircle } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -14,6 +15,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 export function AISensei() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [material, setMaterial] = useState(null);
     const [loading, setLoading] = useState(true);
     const [messages, setMessages] = useState([]);
@@ -23,9 +25,74 @@ export function AISensei() {
     const [simulation, setSimulation] = useState(null);
     const [isScanning, setIsScanning] = useState(false);
 
+    // ── Connect / Friend state ──
+    // 'none' | 'pending' | 'incoming' | 'accepted'
+    const [connectStatus, setConnectStatus] = useState('none');
+    const [connectLoading, setConnectLoading] = useState(false);
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [senderProfile, setSenderProfile] = useState(null);
+
     useEffect(() => {
         fetchMaterial();
     }, [id]);
+
+    // Check friendship status + fetch sender profile once material is loaded
+    useEffect(() => {
+        if (material && user && material.uploaded_by && material.uploaded_by !== user.id) {
+            checkFriendship(material.uploaded_by);
+            fetchSenderProfile(material.uploaded_by);
+        }
+    }, [material, user]);
+
+    const fetchSenderProfile = async (uploaderId) => {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, username, full_name')
+            .eq('id', uploaderId)
+            .maybeSingle();
+        setSenderProfile({
+            id: uploaderId,
+            name: profile?.full_name || profile?.username || 'Unknown Student',
+            username: profile?.username || '',
+            university: material?.university || '—',
+            subject: material?.subject || '—',
+        });
+    };
+
+    const checkFriendship = async (uploaderId) => {
+        if (!user) return;
+        const { data } = await supabase
+            .from('friendships')
+            .select('status, requester_id')
+            .or(
+                `and(requester_id.eq.${user.id},receiver_id.eq.${uploaderId}),` +
+                `and(requester_id.eq.${uploaderId},receiver_id.eq.${user.id})`
+            )
+            .maybeSingle();
+
+        if (!data) { setConnectStatus('none'); return; }
+        if (data.status === 'accepted') { setConnectStatus('accepted'); return; }
+        if (data.status === 'pending') {
+            setConnectStatus(data.requester_id === user.id ? 'pending' : 'incoming');
+            return;
+        }
+        setConnectStatus('none');
+    };
+
+    const handleConnect = async () => {
+        if (!user || !material?.uploaded_by) return;
+        setConnectLoading(true);
+        const { error } = await supabase.from('friendships').insert([{
+            requester_id: user.id,
+            receiver_id: material.uploaded_by,
+            status: 'pending'
+        }]);
+        if (!error) {
+            setConnectStatus('pending');
+            setShowProfileModal(false);
+        }
+        setConnectLoading(false);
+    };
 
     const extractTextFromPDF = async (url) => {
         try {
@@ -261,6 +328,40 @@ export function AISensei() {
                         GEN-AI 1.5 FLASH ACTIVE
                     </Badge>
                     <div className="h-8 w-px bg-white/5 mx-2" />
+
+                    {/* ── Connect with Sender ── */}
+                    {user && material?.uploaded_by && material.uploaded_by !== user.id && (
+                        connectStatus === 'accepted' ? (
+                            <div className="flex items-center gap-2">
+                                <span className="flex items-center gap-1.5 text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+                                    <UserCheck size={14} /> Friends
+                                </span>
+                                <Link to="/community">
+                                    <button className="flex items-center gap-1.5 text-xs font-black text-primary-400 bg-primary-500/10 border border-primary-500/20 rounded-xl px-3 py-2 hover:bg-primary-500/20 transition-all">
+                                        <MessageCircle size={14} /> DM
+                                    </button>
+                                </Link>
+                            </div>
+                        ) : connectStatus === 'pending' ? (
+                            <span className="flex items-center gap-1.5 text-xs font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+                                <UserPlus size={14} /> Request Sent
+                            </span>
+                        ) : connectStatus === 'incoming' ? (
+                            <span className="flex items-center gap-1.5 text-xs font-black text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-xl px-3 py-2">
+                                <UserPlus size={14} /> Accept in Chill Zone
+                            </span>
+                        ) : (
+                            <button
+                                onClick={() => setShowProfileModal(true)}
+                                className="flex items-center gap-1.5 text-xs font-black text-white bg-primary-600 hover:bg-primary-500 rounded-xl px-4 py-2.5 transition-all shadow-lg shadow-primary-900/30 active:scale-95"
+                            >
+                                <UserPlus size={14} />
+                                Connect with Sender
+                            </button>
+                        )
+                    )}
+
+                    <div className="h-8 w-px bg-white/5 mx-1" />
                     <Button variant="accent" size="sm" className="gap-2 rounded-xl h-11" onClick={handleDownload}>
                         <Download size={18} /> Download
                     </Button>

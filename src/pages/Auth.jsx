@@ -12,7 +12,6 @@ export function Auth() {
     const [error, setError] = useState(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [username, setUsername] = useState('');
     const navigate = useNavigate();
 
     const handleAuth = async (e) => {
@@ -36,11 +35,23 @@ export function Auth() {
                     password,
                     options: {
                         data: {
-                            username: username,
+                            username: email.split('@')[0],
                         },
                     },
                 });
-                if (error) throw error;
+                
+                if (error) {
+                    // Direct login bypass if email already registered
+                    if (error.message.includes('already registered') || error.status === 400) {
+                        const { error: loginError } = await supabase.auth.signInWithPassword({
+                            email,
+                            password,
+                        });
+                        if (loginError) throw loginError;
+                    } else {
+                        throw error;
+                    }
+                }
                 
                 // If "Confirm Email" is disabled in Supabase, the user is successfully logged in.
                 // We can navigate them straight to the home page.
@@ -112,15 +123,6 @@ export function Auth() {
                     )}
 
                     <form onSubmit={handleAuth} className="space-y-4 mb-8">
-                        {!isLogin && (
-                            <Input
-                                icon={User}
-                                placeholder="Username (make it cool)"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                required
-                            />
-                        )}
                         <Input
                             icon={Mail}
                             type="email"

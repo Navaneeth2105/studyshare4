@@ -10,6 +10,9 @@ import { supabase } from '../supabaseClient';
 export function Landing() {
     const [trending, setTrending] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedVibe, setSelectedVibe] = useState(null);
+    const [selectedCombo, setSelectedCombo] = useState(null);
+    const [vibeCount, setVibeCount] = useState(2000);
 
     useEffect(() => {
         fetchTrending();
@@ -180,14 +183,19 @@ export function Landing() {
                                     </h2>
                                     <p className="text-slate-400 font-medium mt-2">How's the brain feeling today, academic weapon?</p>
                                 </div>
-                                <div className="flex -space-x-3">
+                                <div className="flex -space-x-3 transition-all duration-500">
+                                    {selectedVibe && (
+                                        <div className="w-12 h-12 rounded-full border-4 border-slate-900 bg-primary-500 flex items-center justify-center text-xl shadow-lg ring-2 ring-primary-400 z-10 animate-bounce-slight">
+                                            {selectedVibe}
+                                        </div>
+                                    )}
                                     {[1, 2, 3, 4, 5].map(i => (
                                         <div key={i} className="w-12 h-12 rounded-full border-4 border-slate-900 bg-slate-800 flex items-center justify-center text-xl shadow-lg ring-2 ring-primary-500/20">
                                             {i === 1 ? '🤓' : i === 2 ? '😵‍💫' : i === 3 ? '😴' : i === 4 ? '😎' : '🎉'}
                                         </div>
                                     ))}
-                                    <div className="w-12 h-12 rounded-full border-4 border-slate-900 bg-primary-600 flex items-center justify-center text-xs font-black text-white shadow-lg ring-2 ring-primary-500/20">
-                                        +2k
+                                    <div className="w-12 h-12 rounded-full border-4 border-slate-900 bg-primary-600 flex items-center justify-center text-[10px] font-black text-white shadow-lg ring-2 ring-primary-500/20">
+                                        {vibeCount === 2000 ? '+2k' : '2,001'}
                                     </div>
                                 </div>
                             </div>
@@ -202,7 +210,12 @@ export function Landing() {
                                             {group.emojis.map((emoji, j) => (
                                                 <button
                                                     key={j}
-                                                    className="w-10 h-10 flex items-center justify-center text-xl hover:bg-white/10 rounded-xl transition-all hover:scale-125"
+                                                    onClick={() => {
+                                                        if (!selectedVibe && vibeCount === 2000) setVibeCount(vibeCount + 1);
+                                                        setSelectedVibe(emoji);
+                                                        setSelectedCombo(null);
+                                                    }}
+                                                    className={`w-10 h-10 flex items-center justify-center text-xl rounded-xl transition-all hover:scale-125 ${selectedVibe === emoji ? 'bg-primary-500/30 scale-125 ring-2 ring-primary-400' : 'hover:bg-white/10'}`}
                                                     title={group.label}
                                                 >
                                                     {emoji}
@@ -215,18 +228,28 @@ export function Landing() {
 
                             <div className="mt-12 pt-8 border-t border-white/5 flex flex-wrap gap-4 items-center justify-center md:justify-start">
                                 <span className="text-xs font-black uppercase tracking-widest text-slate-500 mr-2">Study Combos:</span>
-                                <div className="px-4 py-2 bg-slate-950 rounded-full border border-white/5 text-sm font-bold text-slate-300 hover:border-primary-500/50 transition-all cursor-pointer">
-                                    🤓📚✏️ Serious Mode
-                                </div>
-                                <div className="px-4 py-2 bg-slate-950 rounded-full border border-white/5 text-sm font-bold text-slate-300 hover:border-primary-500/50 transition-all cursor-pointer">
-                                    😴📖 Sleepy Study
-                                </div>
-                                <div className="px-4 py-2 bg-slate-950 rounded-full border border-white/5 text-sm font-bold text-slate-300 hover:border-primary-500/50 transition-all cursor-pointer">
-                                    😰📝 Exam Tension
-                                </div>
-                                <div className="px-4 py-2 bg-slate-950 rounded-full border border-white/5 text-sm font-bold text-slate-300 hover:border-primary-500/50 transition-all cursor-pointer">
-                                    😎🧠 Smart Mode
-                                </div>
+                                {[
+                                    { name: "Serious Mode", emojis: "🤓📚✏️", firstEmoji: "🤓" },
+                                    { name: "Sleepy Study", emojis: "😴📖", firstEmoji: "😴" },
+                                    { name: "Exam Tension", emojis: "😰📝", firstEmoji: "😰" },
+                                    { name: "Smart Mode", emojis: "😎🧠", firstEmoji: "😎" }
+                                ].map((combo, i) => (
+                                    <div 
+                                        key={i}
+                                        onClick={() => {
+                                            setSelectedCombo(combo.name);
+                                            setSelectedVibe(combo.firstEmoji);
+                                            if (vibeCount === 2000) setVibeCount(vibeCount + 1);
+                                        }}
+                                        className={`px-4 py-2 rounded-full border text-sm font-bold transition-all cursor-pointer ${
+                                            selectedCombo === combo.name 
+                                            ? 'bg-primary-600/20 border-primary-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' 
+                                            : 'bg-slate-950 border-white/5 text-slate-300 hover:border-primary-500/50'
+                                        }`}
+                                    >
+                                        {combo.emojis} {combo.name}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -444,15 +467,15 @@ export function Landing() {
                                 I built StudyShare to kill gatekeeping in academics. Let's make sure no student ever has to fail because they couldn't find the right notes.
                             </p>
                             <div className="flex items-center gap-4">
-                                <a href="https://instagram.com/_navaneeth.k_" target="_blank" rel="noopener noreferrer"
+                                <a href="https://www.instagram.com/k.navaneeth4/" target="_blank" rel="noopener noreferrer"
                                     className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-pink-50 hover:text-pink-600 transition-all hover:-translate-y-1 shadow-sm">
                                     <Instagram size={24} />
                                 </a>
-                                <a href="https://linkedin.com/in/navaneeth-k" target="_blank" rel="noopener noreferrer"
+                                <a href="https://www.linkedin.com/in/navaneeth4" target="_blank" rel="noopener noreferrer"
                                     className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-all hover:-translate-y-1 shadow-sm">
                                     <Linkedin size={24} />
                                 </a>
-                                <a href="https://github.com/navaneeth-k" target="_blank" rel="noopener noreferrer"
+                                <a href="https://github.com/Navaneeth2105" target="_blank" rel="noopener noreferrer"
                                     className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-900 hover:text-white transition-all hover:-translate-y-1 shadow-sm">
                                     <Github size={24} />
                                 </a>

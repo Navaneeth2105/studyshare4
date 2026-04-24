@@ -5,7 +5,7 @@ import { Button } from '../components/common/Button';
 import { Card, Badge } from '../components/common/Card';
 import {
   FileText, Star, Loader2, User, School, Book, Calendar,
-  TrendingUp, Download, CheckCircle2, MessageSquare
+  TrendingUp, Download, CheckCircle2, MessageSquare, Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
@@ -17,6 +17,7 @@ export function Dashboard() {
   const [dataLoading, setDataLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [stats, setStats] = useState({ uploads: 0, downloads: 0, rating: 0 });
+  const [friendsCount, setFriendsCount] = useState(0);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -28,6 +29,7 @@ export function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchUserMaterials();
+      fetchFriendsCount();
       const meta = user?.user_metadata;
       setIsProfileModalOpen(!meta?.full_name || !meta?.university || !meta?.degree);
       setProfileData({
@@ -38,6 +40,18 @@ export function Dashboard() {
       });
     }
   }, [user]);
+
+  const fetchFriendsCount = async () => {
+    if (!user) return;
+    try {
+      const { count } = await supabase
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+      setFriendsCount(count || 0);
+    } catch (e) { console.error(e); }
+  };
 
   const fetchUserMaterials = async () => {
     setDataLoading(true);
@@ -137,11 +151,12 @@ export function Dashboard() {
         </section>
 
         {/* Stats Grid */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6 mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
           {[
-            { label: "Notes Uploaded", value: stats.uploads, icon: FileText, color: "text-blue-500", bg: "bg-blue-50", link: "/upload" },
+          { label: "Notes Uploaded", value: stats.uploads, icon: FileText, color: "text-blue-500", bg: "bg-blue-50", link: "/upload" },
             { label: "Study Karma", value: stats.downloads * 15, icon: Star, color: "text-yellow-500", bg: "bg-yellow-50" },
             { label: "Total Downloads", value: stats.downloads, icon: Download, color: "text-green-500", bg: "bg-green-50" },
+            { label: "Friends", value: friendsCount, icon: Users, color: "text-indigo-500", bg: "bg-indigo-50", link: "/community" },
             { label: "Average Rating", value: stats.rating || '—', icon: TrendingUp, color: "text-purple-500", bg: "bg-purple-50" }
           ].map((stat, i) => {
             const inner = (
