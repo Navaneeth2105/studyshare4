@@ -13,10 +13,15 @@ export function Landing() {
     const [selectedVibe, setSelectedVibe] = useState(null);
     const [selectedCombo, setSelectedCombo] = useState(null);
     const [vibeCount, setVibeCount] = useState(2000);
+    const [topUsers, setTopUsers] = useState([]);
+    const [topUsersLoading, setTopUsersLoading] = useState(true);
 
     useEffect(() => {
         fetchTrending();
+        fetchTopUsers();
     }, []);
+
+    const WHATSAPP_URL = 'https://wa.me/916309691674';
 
     const fetchTrending = async () => {
         try {
@@ -31,6 +36,37 @@ export function Landing() {
             console.error('Error fetching trending:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Fetch real top uploaders
+    const fetchTopUsers = async () => {
+        setTopUsersLoading(true);
+        try {
+            // Get materials grouped by uploader
+            const { data: mats } = await supabase
+                .from('materials')
+                .select('uploaded_by, uploader_name, downloads, title')
+                .not('uploaded_by', 'is', null);
+
+            if (!mats || mats.length === 0) { setTopUsersLoading(false); return; }
+
+            // Aggregate per uploader
+            const map = {};
+            for (const m of mats) {
+                if (!m.uploaded_by) continue;
+                if (!map[m.uploaded_by]) map[m.uploaded_by] = { id: m.uploaded_by, name: m.uploader_name || 'Scholar', files: 0, karma: 0 };
+                map[m.uploaded_by].files += 1;
+                map[m.uploaded_by].karma += (m.downloads || 0) * 10; // 10 karma per download
+            }
+
+            // Sort by karma
+            const sorted = Object.values(map).sort((a, b) => b.karma - a.karma).slice(0, 4);
+            setTopUsers(sorted);
+        } catch (e) {
+            console.error('Top users error:', e);
+        } finally {
+            setTopUsersLoading(false);
         }
     };
 
@@ -352,7 +388,7 @@ export function Landing() {
                     </div>
                 </section>
 
-                {/* New: The Channel / Profile Upgrade Section */}
+                {/* Top Academic Weapons — REAL-TIME */}
                 <section className="max-w-6xl mx-auto mb-24 px-4">
                     <div className="text-center mb-16">
                         <h2 className="text-4xl font-display font-black text-slate-900 mb-4">
@@ -363,86 +399,90 @@ export function Landing() {
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-4 gap-8">
-                        {[
-                            { name: "Navaneeth", bio: "Notes King 👑", karma: "25k", files: "42", color: "from-blue-500 to-indigo-600", emoji: "⚡" },
-                            { name: "Sarah_CS", bio: "Algorithmic Goddess", karma: "18k", files: "29", color: "from-purple-500 to-pink-600", emoji: "🧠" },
-                            { name: "Drake_Eng", bio: "Mech Mech Mech", karma: "12k", files: "15", color: "from-orange-500 to-red-600", emoji: "⚙️" },
-                            { name: "Ananya_Med", bio: "Bio Flashcard Pro", karma: "30k", files: "56", color: "from-green-500 to-teal-600", emoji: "🩺" }
-                        ].map((profile, i) => (
-                            <div key={i} className="group relative">
-                                <Card className="p-0 overflow-hidden border-none shadow-2xl transition-all duration-500 group-hover:-translate-y-4 group-hover:rotate-2">
-                                    <div className={`h-24 bg-linear-to-br ${profile.color} relative overflow-hidden`}>
-                                        <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-                                        <div className="absolute top-2 right-2 flex gap-1">
-                                            <div className="w-2 h-2 rounded-full bg-white/40"></div>
-                                            <div className="w-2 h-2 rounded-full bg-white/40"></div>
-                                            <div className="w-2 h-2 rounded-full bg-white/40"></div>
-                                        </div>
+                    {topUsersLoading ? (
+                        <div className="flex justify-center py-16">
+                            <Loader2 className="animate-spin text-primary-500" size={40} />
+                        </div>
+                    ) : topUsers.length === 0 ? (
+                        <div className="text-center py-16 text-slate-400 font-bold">
+                            <div className="text-5xl mb-4">🏜️</div>
+                            <p>Be the first academic weapon — upload some notes!</p>
+                            <Link to="/upload"><Button variant="primary" className="mt-6">Upload Notes</Button></Link>
+                        </div>
+                    ) : (
+                        <div className="grid md:grid-cols-4 gap-8">
+                            {topUsers.map((profile, i) => {
+                                const colors = [
+                                    'from-blue-500 to-indigo-600',
+                                    'from-purple-500 to-pink-600',
+                                    'from-orange-500 to-red-600',
+                                    'from-green-500 to-teal-600'
+                                ];
+                                const emojis = ['⚡', '🧠', '⚙️', '🩺'];
+                                const badges = ['Notes King 👑', 'Top Scholar', 'Study Beast', 'Bio Legend'];
+                                const karmaDisplay = profile.karma >= 1000
+                                    ? `${(profile.karma / 1000).toFixed(0)}k`
+                                    : profile.karma;
+
+                                return (
+                                    <div key={profile.id} className="group relative">
+                                        <Link to={`/profile/${profile.id}`}>
+                                            <Card className="p-0 overflow-hidden border-none shadow-2xl transition-all duration-500 group-hover:-translate-y-4 group-hover:rotate-2">
+                                                <div className={`h-24 bg-gradient-to-br ${colors[i % 4]} relative overflow-hidden`}>
+                                                    <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+                                                    {i === 0 && (
+                                                        <div className="absolute top-2 left-2 bg-yellow-400 text-slate-900 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full">#1 ⭐</div>
+                                                    )}
+                                                    <div className="absolute top-2 right-2 flex gap-1">
+                                                        {[0,1,2].map(d => <div key={d} className="w-2 h-2 rounded-full bg-white/40" />)}
+                                                    </div>
+                                                </div>
+                                                <div className="px-6 pb-8 pt-12 relative">
+                                                    <div className="absolute -top-10 left-6 w-20 h-20 rounded-3xl bg-white p-1 shadow-xl transition-all duration-500 group-hover:w-16 group-hover:h-16 group-hover:-top-8">
+                                                        <div className={`w-full h-full rounded-2xl bg-gradient-to-br ${colors[i % 4]} flex items-center justify-center text-3xl shadow-inner`}>
+                                                            {emojis[i % 4]}
+                                                        </div>
+                                                        <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-4 border-white rounded-full" />
+                                                    </div>
+                                                    <div className="mb-6">
+                                                        <h3 className="text-xl font-display font-black text-slate-900 leading-tight">{profile.name}</h3>
+                                                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{badges[i % 4]}</p>
+                                                    </div>
+                                                    <div className="flex gap-4 mb-6">
+                                                        <div className="flex-1 bg-slate-50 rounded-2xl p-3 text-center group-hover:bg-primary-50">
+                                                            <div className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">Karma</div>
+                                                            <div className="text-lg font-black text-slate-900 group-hover:text-primary-600">{karmaDisplay}</div>
+                                                        </div>
+                                                        <div className="flex-1 bg-slate-50 rounded-2xl p-3 text-center group-hover:bg-accent-light">
+                                                            <div className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">Files</div>
+                                                            <div className="text-lg font-black text-slate-900">{profile.files}</div>
+                                                        </div>
+                                                    </div>
+                                                    <Button variant="outline" size="sm" className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] py-3 group-hover:bg-slate-900 group-hover:text-white transition-all">
+                                                        Visit Profile →
+                                                    </Button>
+                                                </div>
+                                            </Card>
+                                        </Link>
+                                        <div className="absolute inset-0 -z-10 bg-slate-100 rounded-3xl rotate-3 translate-x-3 translate-y-3 opacity-0 group-hover:opacity-100 transition-all duration-700" />
                                     </div>
-                                    <div className="px-6 pb-8 pt-12 relative">
-                                        {/* Profile Photo - "Downsize" effect on hover */}
-                                        <div className="absolute -top-10 left-6 w-20 h-20 rounded-3xl bg-white p-1 shadow-xl transition-all duration-500 group-hover:w-16 group-hover:h-16 group-hover:-top-8">
-                                            <div className={`w-full h-full rounded-2xl bg-linear-to-br ${profile.color} flex items-center justify-center text-3xl shadow-inner`}>
-                                                {profile.emoji}
-                                            </div>
-                                            {/* Status Dot */}
-                                            <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-4 border-white rounded-full"></div>
-                                        </div>
+                                );
+                            })}
+                        </div>
+                    )}
 
-                                        <div className="mb-6">
-                                            <h3 className="text-xl font-display font-black text-slate-900 leading-tight">
-                                                {profile.name}
-                                            </h3>
-                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{profile.bio}</p>
-                                        </div>
-
-                                        <div className="flex gap-4 mb-6">
-                                            <div className="flex-1 bg-slate-50 rounded-2xl p-3 text-center transition-colors group-hover:bg-primary-50">
-                                                <div className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">Karma</div>
-                                                <div className="text-lg font-black text-slate-900 group-hover:text-primary-600">{profile.karma}</div>
-                                            </div>
-                                            <div className="flex-1 bg-slate-50 rounded-2xl p-3 text-center transition-colors group-hover:bg-accent-light">
-                                                <div className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">Files</div>
-                                                <div className="text-lg font-black text-slate-900 group-hover:text-accent-hover">{profile.files}</div>
-                                            </div>
-                                        </div>
-
-                                        <Button variant="outline" size="sm" className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] py-3 group-hover:bg-slate-900 group-hover:text-white transition-all">
-                                            Visit Channel →
-                                        </Button>
-                                    </div>
-
-                                    {/* Action Hint on Right Click (Mock) */}
-                                    <div className="absolute inset-0 bg-slate-900/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-6 text-center pointer-events-none">
-                                        <p className="font-bold text-sm">
-                                            Right-click to inspect <br />
-                                            <span className="text-accent-400">@{profile.name}'s</span> <br />
-                                            Vault
-                                        </p>
-                                    </div>
-                                </Card>
-
-                                {/* Decorative "Passed Note" behind */}
-                                <div className="absolute inset-0 -z-10 bg-slate-100 rounded-3xl rotate-3 translate-x-3 translate-y-3 opacity-0 group-hover:opacity-100 transition-all duration-700"></div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-16 p-8 bg-linear-to-br from-primary-50 to-indigo-50 rounded-[3rem] border border-primary-100 flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div className="mt-16 p-8 bg-gradient-to-br from-primary-50 to-indigo-50 rounded-[3rem] border border-primary-100 flex flex-col md:flex-row items-center justify-between gap-8">
                         <div className="flex items-center gap-6">
                             <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg transform -rotate-6">
                                 <span className="text-3xl">📡</span>
                             </div>
                             <div>
                                 <h4 className="text-xl font-display font-black text-slate-900">Live Note Broadcast</h4>
-                                <p className="text-slate-500 font-medium">Navaneeth just passed "Xamarin Advanced UI" to his channel.</p>
+                                <p className="text-slate-500 font-medium">New notes dropping in real-time. Jump in!</p>
                             </div>
                         </div>
                         <Link to="/community">
-                            <Button variant="primary" className="rounded-2xl px-8 shadow-xl shadow-primary-500/20">
-                                Join the Channel →
-                            </Button>
+                            <Button variant="primary" className="rounded-2xl px-8 shadow-xl shadow-primary-500/20">Join the Channel →</Button>
                         </Link>
                     </div>
                 </section>
@@ -489,14 +529,16 @@ export function Landing() {
 
                         {/* Quick Action Card */}
                         <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-600/20 blur-2xl rounded-full"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-600/20 blur-2xl rounded-full" />
                             <h3 className="text-2xl font-display font-bold mb-4 relative z-10">Wanna collaborate?</h3>
                             <p className="text-slate-400 font-medium mb-8 relative z-10">
                                 If you're an academic weapon who wants to help scale this mission, slide into my DMs.
                             </p>
-                            <Button variant="accent" className="w-full rounded-2xl py-6 font-black uppercase tracking-widest group-hover:scale-[1.02] transition-transform">
-                                Send a Message 🚀
-                            </Button>
+                            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+                                <Button variant="accent" className="w-full rounded-2xl py-6 font-black uppercase tracking-widest group-hover:scale-[1.02] transition-transform">
+                                    Send a Message 🚀
+                                </Button>
+                            </a>
                         </div>
                     </div>
 
@@ -508,9 +550,9 @@ export function Landing() {
                         </div>
 
                         <div className="flex items-center gap-8">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-primary-600 cursor-pointer transition-colors">Privacy</span>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-primary-600 cursor-pointer transition-colors">Terms</span>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-primary-600 cursor-pointer transition-colors">Support</span>
+                            <Link to="/privacy" className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-primary-600 cursor-pointer transition-colors">Privacy</Link>
+                            <Link to="/terms" className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-primary-600 cursor-pointer transition-colors">Terms</Link>
+                            <Link to="/support" className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-primary-600 cursor-pointer transition-colors">Support</Link>
                         </div>
 
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">

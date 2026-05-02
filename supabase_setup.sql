@@ -69,6 +69,8 @@ create table if not exists direct_messages (
     sender_name  text,
     receiver_name text,
     text         text not null,
+    file_url     text,           -- URL of shared file (PDF, image, etc.)
+    file_name    text,           -- Original filename for display
     created_at   timestamptz default now()
 );
 
@@ -78,5 +80,12 @@ create policy "Users see own DMs" on direct_messages for select
 create policy "Users send DMs" on direct_messages for insert
     with check (auth.uid() = sender_id);
 
+-- If you already have the direct_messages table, run these ALTER statements instead:
+-- alter table direct_messages add column if not exists file_url text;
+-- alter table direct_messages add column if not exists file_name text;
+
+-- 4. (Optional) Add uploader_name to materials for social feed display
+-- alter table materials add column if not exists uploader_name text;
+
 -- Enable Realtime on these tables in Supabase dashboard:
--- Database > Replication > Enable for: direct_messages, friendships
+-- Database > Replication > Enable for: direct_messages, friendships, materials

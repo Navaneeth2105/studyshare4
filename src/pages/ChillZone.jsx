@@ -4,7 +4,7 @@ import { Button } from '../components/common/Button';
 import {
     Send, Hash, Users, MoreVertical, Image as ImageIcon,
     Loader2, Sparkles, UserPlus, MessageCircle, Check,
-    X, ArrowLeft, UserCheck, Search, Bell
+    X, ArrowLeft, UserCheck, Search, Bell, Paperclip, FileText
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -78,6 +78,7 @@ export function ChillZone() {
     const [dmConversations, setDmConversations] = useState([]); // sidebar DM list
 
     const fileInputRef = useRef(null);
+    const dmFileRef = useRef(null);
     const messagesEndRef = useRef(null);
     const dmEndRef = useRef(null);
 
@@ -160,6 +161,11 @@ export function ChillZone() {
     /* ════════════════════════════════════════
        FRIENDS & USERS
     ════════════════════════════════════════ */
+    // Load on mount so squad is ready even before switching tabs
+    useEffect(() => {
+        if (user) fetchFriendsData();
+    }, [user]);
+
     useEffect(() => {
         if (sidebarView === SIDEBAR.FRIENDS) fetchFriendsData();
     }, [sidebarView]);
@@ -184,13 +190,6 @@ export function ChillZone() {
         if (!user) return;
         setFriendsLoading(true);
         try {
-            // Fetch all user profiles
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, username, full_name, avatar_url')
-                .neq('id', user.id)
-                .limit(100);
-
             // Fetch all friendships involving current user
             const { data: fships } = await supabase
                 .from('friendships')
@@ -199,7 +198,7 @@ export function ChillZone() {
 
             const allFships = fships || [];
 
-            // Accepted friendships
+            // Accepted friendships → get partner IDs
             const accepted = allFships.filter(f => f.status === 'accepted');
             const acceptedIds = accepted.map(f =>
                 f.requester_id === user.id ? f.receiver_id : f.requester_id
@@ -209,19 +208,63 @@ export function ChillZone() {
             const pending = allFships.filter(f => f.status === 'pending' && f.requester_id === user.id);
             const pendingIds = pending.map(f => f.receiver_id);
 
-            // Incoming requests others sent to me
+            // Try profiles table first
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, username, full_name, avatar_url')
+                .neq('id', user.id)
+                .limit(100);
+
+            // Build friend profile list — fallback to DM history if profiles table is sparse
+            let friendPros = [];
+            if (acceptedIds.length > 0) {
+                // Get names from profiles table
+                const fromProfiles = (profiles || []).filter(p => acceptedIds.includes(p.id));
+                const foundIds = fromProfiles.map(p => p.id);
+
+                // For any accepted friend NOT found in profiles, look in DM history
+                const missingIds = acceptedIds.filter(id => !foundIds.includes(id));
+                let fromDms = [];
+                if (missingIds.length > 0) {
+                    const { data: dmHistory } = await supabase
+                        .from('direct_messages')
+                        .select('sender_id, sender_name, receiver_id, receiver_name')
+                        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+                        .limit(200);
+                    const seen = new Set();
+                    for (const msg of (dmHistory || [])) {
+                        const partnerId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+                        const partnerName = msg.sender_id === user.id ? msg.receiver_name : msg.sender_name;
+                        if (missingIds.includes(partnerId) && !seen.has(partnerId)) {
+                            seen.add(partnerId);
+                            fromDms.push({ id: partnerId, full_name: partnerName, username: '' });
+                        }
+                    }
+                    // For still-missing IDs (no DM history), use notifications sender_name
+                    const stillMissing = missingIds.filter(id => !seen.has(id));
+                    for (const id of stillMissing) {
+                        const { data: notif } = await supabase
+                            .from('notifications')
+                            .select('sender_name, sender_id')
+                            .or(`and(sender_id.eq.${id},user_id.eq.${user.id}),and(sender_id.eq.${user.id},user_id.eq.${id})`)
+                            .limit(1)
+                            .maybeSingle();
+                        fromDms.push({ id, full_name: notif?.sender_name || 'StudyShare Student', username: '' });
+                    }
+                }
+                friendPros = [...fromProfiles, ...fromDms];
+            }
+
+            // Incoming requests — resolve names from profiles or notifications
             const incoming = allFships.filter(f => f.status === 'pending' && f.receiver_id === user.id);
             const incomingWithNames = incoming.map(f => {
                 const profile = (profiles || []).find(p => p.id === f.requester_id);
                 return {
                     friendshipId: f.id,
                     requester_id: f.requester_id,
-                    name: profile?.full_name || profile?.username || 'Unknown Student'
+                    name: profile?.full_name || profile?.username || 'A Student'
                 };
             });
-
-            // Friend profiles (accepted)
-            const friendPros = (profiles || []).filter(p => acceptedIds.includes(p.id));
 
             setFriends(acceptedIds);
             setFriendProfiles(friendPros);
@@ -234,12 +277,26 @@ export function ChillZone() {
 
     const sendFriendRequest = async (targetId) => {
         if (!user) return;
-        const { error } = await supabase.from('friendships').insert([{
+        const { data: fsData, error } = await supabase.from('friendships').insert([{
             requester_id: user.id,
             receiver_id: targetId,
             status: 'pending'
-        }]);
-        if (!error) setSentReqs(prev => [...prev, targetId]);
+        }]).select().single();
+        if (!error) {
+            setSentReqs(prev => [...prev, targetId]);
+            // 🔔 Notify the receiver
+            const senderName = displayName(user);
+            await supabase.from('notifications').insert([{
+                user_id: targetId,
+                type: 'friend_request',
+                sender_id: user.id,
+                sender_name: senderName,
+                reference_id: fsData?.id || null,
+                message: `${senderName} sent you a connection request!`,
+                is_read: false,
+                created_at: new Date().toISOString()
+            }]);
+        }
     };
 
     const acceptFriendRequest = async (friendshipId, requesterId, requesterName) => {
@@ -251,6 +308,18 @@ export function ChillZone() {
         setIncomingReqs(prev => prev.filter(r => r.friendshipId !== friendshipId));
         setFriends(prev => [...prev, requesterId]);
         setFriendProfiles(prev => [...prev, { id: requesterId, full_name: requesterName }]);
+        // 🔔 Notify the requester that request was accepted
+        const accepterName = displayName(user);
+        await supabase.from('notifications').insert([{
+            user_id: requesterId,
+            type: 'accepted',
+            sender_id: user.id,
+            sender_name: accepterName,
+            reference_id: friendshipId,
+            message: `${accepterName} accepted your connection request! 🎉`,
+            is_read: false,
+            created_at: new Date().toISOString()
+        }]);
     };
 
     const rejectFriendRequest = async (friendshipId) => {
@@ -335,17 +404,56 @@ export function ChillZone() {
         e.preventDefault();
         if (!dmInput.trim() || !dmPartner || !user) return;
         setDmSending(true);
+        const msgText = dmInput;
         await supabase.from('direct_messages').insert([{
             sender_id: user.id,
             sender_name: displayName(user),
             receiver_id: dmPartner.id,
             receiver_name: dmPartner.name,
-            text: dmInput,
+            text: msgText,
             created_at: new Date().toISOString()
         }]);
         setDmInput('');
         setDmSending(false);
         fetchDmConversations();
+        // 🔔 Notify the DM partner (only for first message snippet, avoid spam with short cooldown)
+        const senderName = displayName(user);
+        await supabase.from('notifications').insert([{
+            user_id: dmPartner.id,
+            type: 'message',
+            sender_id: user.id,
+            sender_name: senderName,
+            reference_id: null,
+            message: `New message from ${senderName}: "${msgText.slice(0, 60)}${msgText.length > 60 ? '…' : ''}"`,
+            is_read: false,
+            created_at: new Date().toISOString()
+        }]);
+    };
+
+
+    const handleDmFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !dmPartner || !user) return;
+        setDmSending(true);
+        try {
+            const ext = file.name.split('.').pop();
+            const path = `dm-files/${user.id}-${Date.now()}.${ext}`;
+            const { error: upErr } = await supabase.storage.from('materials').upload(path, file);
+            if (upErr) throw upErr;
+            const { data: { publicUrl } } = supabase.storage.from('materials').getPublicUrl(path);
+            await supabase.from('direct_messages').insert([{
+                sender_id: user.id,
+                sender_name: displayName(user),
+                receiver_id: dmPartner.id,
+                receiver_name: dmPartner.name,
+                text: `📎 Shared a file: ${file.name}`,
+                file_url: publicUrl,
+                file_name: file.name,
+                created_at: new Date().toISOString()
+            }]);
+            fetchDmConversations();
+        } catch (err) { alert('Upload failed: ' + err.message); }
+        finally { setDmSending(false); }
     };
 
     /* ════════════════════════════════════════
@@ -492,109 +600,122 @@ export function ChillZone() {
 
                         {/* ── FRIENDS VIEW ── */}
                         {sidebarView === SIDEBAR.FRIENDS && (
-                            <div className="space-y-4">
+                            <div className="space-y-5">
 
-                                {/* Incoming Requests */}
+                                {/* ── CONNECTED FRIENDS (always show first) ── */}
+                                <div>
+                                    <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-3 px-1 flex items-center gap-1.5">
+                                        <UserCheck size={11} /> Connected ({friendProfiles.length})
+                                    </h3>
+
+                                    {friendsLoading ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <Loader2 size={22} className="animate-spin text-primary-500" />
+                                        </div>
+                                    ) : friendProfiles.length === 0 ? (
+                                        <div className="text-center py-6 px-3 rounded-2xl bg-white/3 border border-white/5">
+                                            <div className="text-3xl mb-2">🤝</div>
+                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">No connections yet</p>
+                                            <p className="text-[10px] text-slate-700 mt-1">Browse notes & hit Connect!</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {friendProfiles.map(fp => {
+                                                const name = fp.full_name || fp.username || 'StudyShare Student';
+                                                return (
+                                                    <div
+                                                        key={fp.id}
+                                                        onClick={() => openDm({ id: fp.id, name, avatar: '🎓' })}
+                                                        className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/15 hover:bg-emerald-500/10 hover:border-emerald-500/30 cursor-pointer transition-all group"
+                                                    >
+                                                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-primary-500/20 flex items-center justify-center text-lg shrink-0 border border-white/10">
+                                                            🎓
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-black text-white truncate">{name}</p>
+                                                            <p className="text-[10px] text-emerald-400 font-bold">Tap to open private chat</p>
+                                                        </div>
+                                                        <div className="p-1.5 rounded-lg bg-primary-600/20 text-primary-400 group-hover:bg-primary-600/40 transition-all shrink-0">
+                                                            <MessageCircle size={14} />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* ── INCOMING REQUESTS ── */}
                                 {incomingReqs.length > 0 && (
                                     <div>
-                                        <h3 className="text-[10px] font-black text-red-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-1.5">
-                                            <Bell size={11} /> Requests ({incomingReqs.length})
+                                        <div className="border-t border-white/5 mb-4" />
+                                        <h3 className="text-[10px] font-black text-red-400 uppercase tracking-[0.2em] mb-3 px-1 flex items-center gap-1.5">
+                                            <Bell size={11} /> Pending ({incomingReqs.length})
                                         </h3>
                                         <div className="space-y-2">
                                             {incomingReqs.map(req => (
                                                 <div key={req.friendshipId} className="flex items-center gap-3 p-3 rounded-2xl bg-primary-500/8 border border-primary-500/20">
-                                                    <div className="w-10 h-10 rounded-2xl bg-primary-600/20 flex items-center justify-center text-lg shrink-0">
-                                                        🎓
-                                                    </div>
+                                                    <div className="w-10 h-10 rounded-2xl bg-primary-600/20 flex items-center justify-center text-lg shrink-0">🎓</div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-black text-white truncate">{req.name}</p>
                                                         <p className="text-[10px] text-primary-400 font-bold">Wants to connect</p>
                                                     </div>
                                                     <div className="flex gap-1.5">
-                                                        <button
-                                                            onClick={() => acceptFriendRequest(req.friendshipId, req.requester_id, req.name)}
-                                                            className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all"
-                                                            title="Accept"
-                                                        >
+                                                        <button onClick={() => acceptFriendRequest(req.friendshipId, req.requester_id, req.name)}
+                                                            className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all" title="Accept">
                                                             <Check size={14} />
                                                         </button>
-                                                        <button
-                                                            onClick={() => rejectFriendRequest(req.friendshipId)}
-                                                            className="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all"
-                                                            title="Decline"
-                                                        >
+                                                        <button onClick={() => rejectFriendRequest(req.friendshipId)}
+                                                            className="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all" title="Decline">
                                                             <X size={14} />
                                                         </button>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
-                                        <div className="border-t border-white/5 mt-4 mb-1" />
                                     </div>
                                 )}
 
-                                {/* Search */}
-                                <div className="relative">
-                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                                    <input
-                                        value={friendSearch}
-                                        onChange={e => setFriendSearch(e.target.value)}
-                                        placeholder="Search students..."
-                                        className="w-full bg-slate-800/60 border border-white/8 rounded-xl pl-8 pr-3 py-2.5 text-xs font-bold text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-all"
-                                    />
-                                </div>
-
-                                {friendsLoading ? (
-                                    <div className="flex items-center justify-center py-10">
-                                        <Loader2 size={24} className="animate-spin text-primary-500" />
-                                    </div>
-                                ) : filteredUsers.length === 0 ? (
-                                    <div className="text-center py-10 text-slate-600 text-xs font-bold uppercase tracking-widest">
-                                        No students found
-                                    </div>
-                                ) : (
-                                    filteredUsers.map(u => {
-                                        const isFriend = friends.includes(u.id);
-                                        const isPending = sentReqs.includes(u.id);
-                                        const name = u.full_name || u.username || 'Anon';
-                                        return (
-                                            <div key={u.id} className="flex items-center gap-3 p-3 rounded-2xl bg-white/3 border border-white/5 hover:bg-white/6 transition-all group">
-                                                <div className="w-10 h-10 rounded-2xl bg-primary-600/20 flex items-center justify-center text-lg shrink-0">
-                                                    🎓
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-black text-white truncate">{name}</p>
-                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest truncate">{u.username || u.id?.slice(0,8)}</p>
-                                                </div>
-                                                {isFriend ? (
-                                                    <div className="flex gap-1.5">
-                                                        <button
-                                                            onClick={() => openDm({ id: u.id, name, avatar: '🎓' })}
-                                                            className="p-1.5 rounded-lg bg-primary-600/20 text-primary-400 hover:bg-primary-600/40 transition-all"
-                                                            title="Send DM"
-                                                        >
-                                                            <MessageCircle size={14} />
-                                                        </button>
-                                                        <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400" title="Friends">
-                                                            <UserCheck size={14} />
+                                {/* ── DISCOVER STUDENTS ── */}
+                                {allUsers.length > 0 && (
+                                    <div>
+                                        <div className="border-t border-white/5 mb-4" />
+                                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 px-1">Discover Students</h3>
+                                        <div className="relative mb-3">
+                                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                                            <input
+                                                value={friendSearch}
+                                                onChange={e => setFriendSearch(e.target.value)}
+                                                placeholder="Search by name..."
+                                                className="w-full bg-slate-800/60 border border-white/8 rounded-xl pl-8 pr-3 py-2 text-xs font-bold text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-all"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            {(allUsers.filter(u =>
+                                                !friends.includes(u.id) &&
+                                                (u.full_name || u.username || '').toLowerCase().includes(friendSearch.toLowerCase())
+                                            )).map(u => {
+                                                const isPending = sentReqs.includes(u.id);
+                                                const name = u.full_name || u.username || 'Anon';
+                                                return (
+                                                    <div key={u.id} className="flex items-center gap-3 p-3 rounded-2xl bg-white/3 border border-white/5 hover:bg-white/6 transition-all">
+                                                        <div className="w-9 h-9 rounded-2xl bg-primary-600/20 flex items-center justify-center text-base shrink-0">🎓</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-black text-white truncate">{name}</p>
                                                         </div>
+                                                        {isPending ? (
+                                                            <span className="text-[10px] font-black text-amber-400 bg-amber-500/15 rounded-xl px-2 py-1">Sent</span>
+                                                        ) : (
+                                                            <button onClick={() => sendFriendRequest(u.id)}
+                                                                className="p-1.5 rounded-lg bg-primary-600/20 text-primary-400 hover:bg-primary-600 hover:text-white transition-all" title="Connect">
+                                                                <UserPlus size={13} />
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                ) : isPending ? (
-                                                    <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-400 text-[10px] font-black uppercase tracking-wide px-2">
-                                                        Sent
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => sendFriendRequest(u.id)}
-                                                        className="p-1.5 rounded-lg bg-primary-600/20 text-primary-400 hover:bg-primary-600 hover:text-white transition-all"
-                                                        title="Add Friend"
-                                                    >
-                                                        <UserPlus size={14} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -811,6 +932,19 @@ export function ChillZone() {
                                                     </div>
                                                     <div className={`px-4 py-3 rounded-[1.4rem] text-sm font-bold leading-relaxed shadow-lg ${isMe ? 'bg-primary-600 text-white rounded-br-sm' : 'bg-slate-800/90 border border-white/8 text-slate-200 rounded-bl-sm'}`}>
                                                         {msg.text}
+                                                        {msg.file_url && (
+                                                            <a
+                                                                href={msg.file_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={e => e.stopPropagation()}
+                                                                className={`mt-2.5 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all ${isMe ? 'bg-white/15 hover:bg-white/25 text-white' : 'bg-primary-500/15 hover:bg-primary-500/25 text-primary-300 border border-primary-500/20'}`}
+                                                            >
+                                                                <FileText size={14} />
+                                                                <span className="truncate max-w-[160px]">{msg.file_name || 'Open File'}</span>
+                                                                <span className="ml-auto opacity-70 shrink-0">↗</span>
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -822,18 +956,30 @@ export function ChillZone() {
 
                             {/* DM Input */}
                             <div className="p-5 md:p-6 bg-slate-950/50 backdrop-blur-xl border-t border-white/5 shrink-0">
-                                <form onSubmit={sendDm} className="relative max-w-5xl mx-auto">
-                                    <input
-                                        value={dmInput}
-                                        onChange={e => setDmInput(e.target.value)}
-                                        className="w-full bg-slate-900/60 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all font-bold placeholder:text-slate-600 shadow-inner text-sm"
-                                        placeholder={`Message ${dmPartner.name}...`}
+                                <form onSubmit={sendDm} className="relative max-w-5xl mx-auto flex gap-3">
+                                    <input type="file" ref={dmFileRef} onChange={handleDmFileUpload} className="hidden" accept=".pdf,image/*,.doc,.docx,.ppt,.pptx" />
+                                    <button
+                                        type="button"
+                                        onClick={() => dmFileRef.current?.click()}
                                         disabled={dmSending}
-                                    />
-                                    <button type="submit" disabled={dmSending}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-500 transition-all disabled:opacity-50 shadow-lg active:scale-95">
-                                        {dmSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                        title="Share a file (PDF, image, notes)"
+                                        className="p-3.5 bg-white/5 text-slate-400 rounded-2xl hover:bg-primary-500/15 hover:text-primary-400 transition-all border border-white/5 shrink-0 disabled:opacity-50"
+                                    >
+                                        <Paperclip size={18} />
                                     </button>
+                                    <div className="flex-1 relative">
+                                        <input
+                                            value={dmInput}
+                                            onChange={e => setDmInput(e.target.value)}
+                                            className="w-full bg-slate-900/60 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all font-bold placeholder:text-slate-600 shadow-inner text-sm"
+                                            placeholder={`Message ${dmPartner.name}...`}
+                                            disabled={dmSending}
+                                        />
+                                        <button type="submit" disabled={dmSending}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-500 transition-all disabled:opacity-50 shadow-lg active:scale-95">
+                                            {dmSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                        </button>
+                                    </div>
                                 </form>
                             </div>
                         </>

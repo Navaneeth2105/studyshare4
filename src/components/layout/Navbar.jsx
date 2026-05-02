@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../common/Button';
+import { NotificationBell } from '../common/NotificationBell';
 import { useAuth } from '../../context/AuthContext';
 import { Upload } from 'lucide-react';
 
@@ -9,7 +10,7 @@ export function Navbar() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const isDarkPage = location.pathname === '/dashboard' || location.pathname === '/community' || location.pathname.startsWith('/material/') || location.pathname === '/skills';
+    const isDarkPage = location.pathname === '/dashboard' || location.pathname === '/community' || location.pathname.startsWith('/material/') || location.pathname === '/skills' || location.pathname === '/explore' || location.pathname.startsWith('/profile/');
 
     const handleSignOut = async () => {
         await signOut();
@@ -36,9 +37,11 @@ export function Navbar() {
                 <div className="flex items-center gap-3">
                     {user ? (
                         <>
-                            <div className={`hidden sm:block text-xs font-bold mr-2 ${isDarkPage ? 'text-slate-500' : 'text-slate-500'}`}>
+                            <div className={`hidden sm:block text-xs font-bold mr-1 ${isDarkPage ? 'text-slate-500' : 'text-slate-500'}`}>
                                 {user.email}
                             </div>
+                            {/* 🔔 Real-time Notification Bell */}
+                            <NotificationBell isDarkPage={isDarkPage} />
                             <Link to="/upload">
                                 <Button variant="primary" size="sm" className="hidden sm:flex gap-2 shadow-lg shadow-primary-500/20">
                                     <Upload size={16} /> Upload

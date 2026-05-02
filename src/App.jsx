@@ -10,6 +10,8 @@ import { UploadPage } from './pages/Upload';
 import { Explorer } from './pages/Explorer';
 import { ChillZone } from './pages/ChillZone';
 import { AISensei } from './pages/AISensei';
+import { UserProfile } from './pages/UserProfile';
+import { PrivacyPage, TermsPage, SupportPage } from './pages/LegalPages';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -44,6 +46,12 @@ function App() {
           <Route path="/community" element={<ProtectedRoute><ChillZone /></ProtectedRoute>} />
           <Route path="/skills" element={<ProtectedRoute><CareerSkills /></ProtectedRoute>} />
           <Route path="/material/:id" element={<ProtectedRoute><AISensei /></ProtectedRoute>} />
+          <Route path="/profile/:userId" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+
+          {/* Public legal pages */}
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/support" element={<SupportPage />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
