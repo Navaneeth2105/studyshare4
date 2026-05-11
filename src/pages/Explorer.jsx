@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import studyShareLogo from '../assets/logo.svg';
 import { Navbar } from '../components/layout/Navbar';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Card';
 import {
     Search, Loader2, Download, Sparkles, GraduationCap,
-    UserPlus, UserCheck, MessageCircle, Heart, BookOpen, Filter
+    UserPlus, UserCheck, MessageCircle, Heart, BookOpen, Filter, Share2
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +18,36 @@ export function Explorer() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeType, setActiveType] = useState('All');
+
+    const handleShare = async (e, item) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const isApp = item.id === 'app';
+        const url = isApp ? window.location.origin : `${window.location.origin}/material/${item.id}`;
+        const text = isApp 
+            ? "Check out StudyShare! The best place to find notes and survival kits. 📚"
+            : `Check out these study notes for ${item.subject || 'your exams'} on StudyShare! 🚀`;
+
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: isApp ? 'StudyShare' : item.title, text, url });
+            } else {
+                const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
+                if (confirm(`Open WhatsApp to share ${isApp ? 'StudyShare' : 'this material'}?`)) {
+                    window.open(whatsappUrl, '_blank');
+                } else {
+                    await navigator.clipboard.writeText(url);
+                    alert('Link copied to clipboard! 🔗');
+                }
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                await navigator.clipboard.writeText(url);
+                alert('Link copied! 🔗');
+            }
+        }
+    };
 
     // friendship status per uploader: { [uploaderId]: 'none' | 'pending' | 'incoming' | 'accepted' }
     const [connectMap, setConnectMap] = useState({});
@@ -235,8 +266,7 @@ export function Explorer() {
                         </Link>
                     </div>
                 ) : (
-                    /* Instagram-style feed: 3-col grid on large, 2-col on md, 1-col on sm */
-                    <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
                         {materials.map((item) => {
                             const isOwn = user?.id === item.uploaded_by;
                             const uploaderName = item.uploader_name || 'Study Scholar';
@@ -252,69 +282,62 @@ export function Explorer() {
                                 : '';
 
                             return (
-                                <div key={item.id} className="break-inside-avoid mb-6">
+                                <div key={item.id} className="break-inside-avoid">
                                     <Link to={`/material/${item.id}`} className="group block">
-                                        <div className="bg-slate-900 border border-white/5 rounded-[2rem] overflow-hidden hover:border-primary-500/20 hover:shadow-2xl hover:shadow-primary-900/20 transition-all duration-300">
+                                        <div className="bg-slate-900 border border-white/5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden hover:border-primary-500/20 hover:shadow-2xl transition-all duration-300 h-full flex flex-col">
 
-                                            {/* Uploader row */}
-                                            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                                                <Link
-                                                    to={`/profile/${item.uploaded_by}`}
-                                                    onClick={e => e.stopPropagation()}
-                                                    className="flex items-center gap-3 group/user hover:opacity-90 transition-opacity"
-                                                >
-                                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-indigo-600 flex items-center justify-center text-base shadow-lg border border-white/10 shrink-0">
-                                                        🎓
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-black text-white leading-tight group-hover/user:text-primary-400 transition-colors">
-                                                            {uploaderName}
-                                                        </p>
-                                                        <p className="text-[10px] text-slate-500 font-bold">{timeAgo}</p>
-                                                    </div>
-                                                </Link>
-                                                <ConnectButton uploaderId={item.uploaded_by} uploaderName={uploaderName} />
-                                            </div>
-
-                                            {/* Thumbnail */}
-                                            <div className="mx-3 h-44 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl flex items-center justify-center relative overflow-hidden group-hover:from-indigo-950 group-hover:to-slate-900 transition-all duration-500">
-                                                <span className="text-5xl">
-                                                    {item.type?.toLowerCase().includes('pdf') || item.title?.toLowerCase().includes('pdf') ? '📝' : '📊'}
-                                                </span>
-                                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                <Badge variant="blue" className="absolute top-3 left-3 bg-primary-500/20 text-primary-300 border-primary-500/30 uppercase tracking-widest text-[9px] font-black">
+                                            {/* Thumbnail (Top) */}
+                                            <div className="h-32 md:h-44 bg-gradient-to-br from-slate-800 via-indigo-950 to-slate-900 flex flex-col items-center justify-center relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500 shrink-0 gap-2 px-3">
+                                                {/* Subtle animated bg glow */}
+                                                <div className="absolute inset-0 pointer-events-none">
+                                                    <div className="absolute -top-8 -right-8 w-32 h-32 bg-primary-600/20 rounded-full blur-2xl animate-pulse" />
+                                                    <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-accent-600/15 rounded-full blur-2xl" />
+                                                </div>
+                                                {/* StudyShare Logo */}
+                                                <img
+                                                    src={studyShareLogo}
+                                                    alt="StudyShare"
+                                                    className="w-8 h-8 md:w-10 md:h-10 object-contain z-10 drop-shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0"
+                                                />
+                                                {/* Material Title */}
+                                                <p className="z-10 text-center font-display font-black text-white text-[11px] md:text-sm leading-tight line-clamp-3 drop-shadow-md px-1 group-hover:text-primary-300 transition-colors duration-200">
+                                                    {item.title}
+                                                </p>
+                                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                                <Badge variant="blue" className="absolute top-2 left-2 md:top-3 md:left-3 bg-primary-500/20 text-primary-300 border-primary-500/30 uppercase tracking-widest text-[8px] md:text-[9px] font-black">
                                                     {item.type || 'Notes'}
                                                 </Badge>
                                             </div>
 
-                                            {/* Info */}
-                                            <div className="px-5 py-4">
-                                                <h3 className="font-display font-black text-white text-base leading-tight mb-2 group-hover:text-primary-400 transition-colors line-clamp-2">
-                                                    {item.title}
-                                                </h3>
-                                                <div className="flex items-center gap-2 text-slate-500 text-xs font-bold mb-4">
-                                                    <GraduationCap size={13} className="text-slate-500 shrink-0" />
+                                            {/* Info Content */}
+                                            <div className="p-3 md:p-5 flex-1 flex flex-col">
+                                                <div className="flex justify-between items-start gap-2 mb-2">
+                                                    <h3 className="font-display font-black text-white text-xs md:text-base leading-tight group-hover:text-primary-400 transition-colors line-clamp-2 min-h-[2.5rem]">
+                                                        {item.title}
+                                                    </h3>
+                                                    <button 
+                                                        onClick={(e) => handleShare(e, item)}
+                                                        className="p-1.5 md:p-2 bg-white/5 hover:bg-primary-500/20 text-slate-400 hover:text-primary-400 rounded-lg transition-all shrink-0 active:scale-90"
+                                                        title="Share Material"
+                                                    >
+                                                        <Share2 size={14} className="md:w-[16px] md:h-[16px]" />
+                                                    </button>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-1.5 text-slate-500 text-[9px] md:text-xs font-bold mb-3 mt-auto">
+                                                    <GraduationCap size={10} className="text-slate-600 shrink-0" />
                                                     <span className="truncate">{item.university || item.subject}</span>
                                                 </div>
 
-                                                {/* Footer row */}
-                                                <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                                                    <div className="flex items-center gap-3">
-                                                        <button
-                                                            onClick={(e) => toggleLike(e, item.id)}
-                                                            className={`flex items-center gap-1.5 text-xs font-bold transition-all ${liked[item.id] ? 'text-red-400' : 'text-slate-500 hover:text-red-400'}`}
-                                                        >
-                                                            <Heart size={14} className={liked[item.id] ? 'fill-red-400' : ''} />
-                                                            {liked[item.id] ? 'Liked' : 'Like'}
-                                                        </button>
-                                                        <span className="text-slate-600">•</span>
-                                                        <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
-                                                            <Download size={13} /> {item.downloads || 0}
-                                                        </span>
+                                                {/* Uploader small row */}
+                                                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-5 h-5 rounded-lg bg-primary-600/20 flex items-center justify-center text-[10px] border border-white/5">🎓</div>
+                                                        <span className="text-[9px] font-bold text-slate-400 truncate max-w-[50px] md:max-w-none">{uploaderName}</span>
                                                     </div>
-                                                    <span className="text-[10px] font-black text-primary-400 uppercase tracking-widest group-hover:text-primary-300 transition-colors">
-                                                        Open →
-                                                    </span>
+                                                    <div className="flex items-center gap-1 text-[9px] font-black text-primary-500 uppercase">
+                                                        <Download size={10} /> {item.downloads || 0}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
