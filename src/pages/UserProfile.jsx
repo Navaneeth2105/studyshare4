@@ -9,6 +9,7 @@ import {
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../hooks/useSubscription';
 
 export function UserProfile() {
     const { userId } = useParams();
@@ -22,6 +23,7 @@ export function UserProfile() {
     const [pageLoading, setPageLoading] = useState(true);
 
     const isSelf = user?.id === userId;
+    const sub = useSubscription();  // karma-based plan info (only meaningful for self)
 
     useEffect(() => {
         fetchAll();
@@ -197,19 +199,81 @@ export function UserProfile() {
                 </div>
 
                 {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-4 mb-10">
+                <div className="grid grid-cols-3 gap-2 md:gap-4 mb-8 md:mb-10">
                     {[
-                        { label: 'Notes Shared', value: materials.length, icon: '📄' },
-                        { label: 'Total Downloads', value: totalDownloads, icon: '⬇️' },
-                        { label: 'Study Karma', value: totalDownloads * 15, icon: '⭐' },
+                        { label: 'Shared', value: materials.length, icon: '📄' },
+                        { label: 'Downloads', value: totalDownloads, icon: '⬇️' },
+                        { label: 'Karma', value: totalDownloads * 15, icon: '⭐' },
                     ].map((stat, i) => (
-                        <div key={i} className="bg-slate-900/60 border border-white/5 rounded-[1.5rem] p-5 text-center backdrop-blur-xl">
-                            <div className="text-3xl mb-1">{stat.icon}</div>
-                            <div className="text-2xl font-display font-black text-white">{stat.value}</div>
-                            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{stat.label}</div>
+                        <div key={i} className="bg-slate-900/60 border border-white/5 rounded-2xl md:rounded-[1.5rem] p-3 md:p-5 text-center backdrop-blur-xl flex flex-col justify-center">
+                            <div className="text-xl md:text-3xl mb-1">{stat.icon}</div>
+                            <div className="text-lg md:text-2xl font-display font-black text-white">{stat.value}</div>
+                            <div className="text-[9px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mt-1 leading-tight">{stat.label}</div>
                         </div>
                     ))}
                 </div>
+
+                {/* ── Subscription Card (self only) ── */}
+                {isSelf && (
+                    <div className="mb-8">
+                        <div className="relative rounded-[2rem] overflow-hidden border border-white/8 bg-gradient-to-br from-slate-900/80 to-indigo-950/60 backdrop-blur-xl p-6 md:p-8">
+                            {/* glow */}
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-violet-500/10 blur-3xl rounded-full -z-0" />
+
+                            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="text-4xl">
+                                        {sub.isSubscribed ? '🎓⚡' : sub.isTrialActive ? '🎁' : '💀'}
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-0.5">Your Plan</p>
+                                        <h3 className="text-lg font-black text-white">
+                                            {sub.isSubscribed
+                                                ? sub.planName
+                                                : sub.isTrialActive
+                                                    ? `Free Trial — ${sub.trialDaysLeft} day${sub.trialDaysLeft !== 1 ? 's' : ''} left 🏃`
+                                                    : 'Brain Dead (No Plan) 💀'}
+                                        </h3>
+                                        <p className="text-xs font-medium text-slate-500 mt-0.5">
+                                            {sub.isSubscribed
+                                                ? `Active · ${sub.price}/mo · Renews monthly`
+                                                : sub.isTrialActive
+                                                    ? 'Enjoying the free ride while it lasts? Smart move.'
+                                                    : 'Trial ended. Subscribe to keep the grind going.'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2 shrink-0">
+                                    {/* Karma pill */}
+                                    <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-1.5 text-xs font-black text-yellow-400">
+                                        ⭐ {sub.karma} Karma
+                                        {sub.karma >= 100 && <span className="text-green-400 ml-1">→ ₹29 rate!</span>}
+                                    </div>
+
+                                    <Link
+                                        to="/subscribe"
+                                        className="flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-violet-900/30 active:scale-95"
+                                    >
+                                        {sub.isSubscribed ? '🔄 Manage Plan' : sub.isTrialActive ? '⚡ Subscribe Early' : '🚀 Subscribe Now'}
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {/* Plan name info */}
+                            {!sub.isSubscribed && (
+                                <div className="relative z-10 mt-5 pt-5 border-t border-white/5 flex flex-wrap gap-3">
+                                    <div className="flex items-center gap-2 bg-slate-800/60 border border-white/5 rounded-xl px-3 py-2 text-xs font-bold text-slate-400">
+                                        🧠💀 <span className="text-slate-300">Brain Rot Beginner</span> — ₹39/mo
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-xl px-3 py-2 text-xs font-bold text-violet-400">
+                                        🎓⚡ <span className="text-violet-300">Certified Academic Weapon</span> — ₹29/mo (100+ Karma)
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Uploaded Notes */}
                 <div>

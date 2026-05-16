@@ -12,8 +12,11 @@ import { ChillZone } from './pages/ChillZone';
 import { AISensei } from './pages/AISensei';
 import { UserProfile } from './pages/UserProfile';
 import { PrivacyPage, TermsPage, SupportPage } from './pages/LegalPages';
+import { Subscribe } from './pages/Subscribe';
+import { BottomNav } from './components/layout/BottomNav';
+import { SubscriptionGuard } from './components/SubscriptionGuard';
 
-// Protected Route Component
+// ── Auth-only Route (must be logged in) ──────────────────────────────────
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -21,7 +24,15 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Root: show public landing if not logged in, else redirect to app
+// ── Auth + Subscription Route (must be logged in AND have active access) ─
+const AppRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/auth" replace />;
+  return <SubscriptionGuard>{children}</SubscriptionGuard>;
+};
+
+// ── Root Resolver ─────────────────────────────────────────────────────────
 const RootResolver = () => {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -38,24 +49,30 @@ function App() {
           <Route path="/" element={<RootResolver />} />
           <Route path="/auth" element={<Auth />} />
 
-          {/* Main App Routes (Protected) */}
-          <Route path="/home" element={<ProtectedRoute><Landing /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
-          <Route path="/explore" element={<ProtectedRoute><Explorer /></ProtectedRoute>} />
-          <Route path="/community" element={<ProtectedRoute><ChillZone /></ProtectedRoute>} />
-          <Route path="/skills" element={<ProtectedRoute><CareerSkills /></ProtectedRoute>} />
-          <Route path="/material/:id" element={<ProtectedRoute><AISensei /></ProtectedRoute>} />
-          <Route path="/profile/:userId" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+          {/* Subscription wall — must be logged in but NOT subscription-gated */}
+          <Route path="/subscribe" element={<ProtectedRoute><Subscribe /></ProtectedRoute>} />
+
+          {/* Main App Routes (login + subscription required) */}
+          <Route path="/home"      element={<AppRoute><Landing /></AppRoute>} />
+          <Route path="/dashboard" element={<AppRoute><Dashboard /></AppRoute>} />
+          <Route path="/upload"    element={<AppRoute><UploadPage /></AppRoute>} />
+          <Route path="/explore"   element={<AppRoute><Explorer /></AppRoute>} />
+          <Route path="/community" element={<AppRoute><ChillZone /></AppRoute>} />
+          <Route path="/skills"    element={<AppRoute><CareerSkills /></AppRoute>} />
+          <Route path="/material/:id"  element={<AppRoute><AISensei /></AppRoute>} />
+          <Route path="/profile/:userId" element={<AppRoute><UserProfile /></AppRoute>} />
 
           {/* Public legal pages */}
           <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/terms"   element={<TermsPage />} />
           <Route path="/support" element={<SupportPage />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {/* Mobile Bottom Navigation */}
+        <BottomNav />
       </Router>
     </AuthProvider>
   );

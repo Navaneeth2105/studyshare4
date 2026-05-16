@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { Card, Badge } from '../components/common/Card';
 import {
   FileText, Star, Loader2, User, School, Book, Calendar,
-  TrendingUp, Download, CheckCircle2, MessageSquare, Users
+  TrendingUp, Download, CheckCircle2, MessageSquare, Users, Share2, Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useSubscription } from '../hooks/useSubscription';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -19,12 +20,38 @@ export function Dashboard() {
   const [stats, setStats] = useState({ uploads: 0, downloads: 0, rating: 0 });
   const [friendsCount, setFriendsCount] = useState(0);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [karmaLive, setKarmaLive] = useState(false); // flashes when karma updates
   const [profileData, setProfileData] = useState({
     full_name: '',
     university: '',
     degree: '',
     year: '1st Year'
   });
+
+  // Fetch materials and derive stats
+  const fetchUserMaterials = useCallback(async () => {
+    if (!user) return;
+    setDataLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('materials')
+        .select('*')
+        .eq('uploaded_by', user.id)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setMaterials(data);
+        const dl = data.reduce((a, c) => a + (c.downloads || 0), 0);
+        const avg = data.length > 0
+          ? (data.reduce((a, c) => a + (c.rating || 0), 0) / data.length).toFixed(1)
+          : 0;
+        setStats({ uploads: data.length, downloads: dl, rating: avg });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDataLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -39,6 +66,37 @@ export function Dashboard() {
         year: meta?.year || '1st Year',
       });
     }
+  }, [user, fetchUserMaterials]);
+
+  // ── Real-time karma: listen for download count changes on user's materials ──
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`karma-live-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'materials',
+          filter: `uploaded_by=eq.${user.id}`,
+        },
+        (payload) => {
+          // Flash the karma badge and refresh stats
+          setKarmaLive(true);
+          setTimeout(() => setKarmaLive(false), 1500);
+          setStats((prev) => {
+            // Update only the changed material's downloads
+            const updatedDownloads = payload.new?.downloads ?? 0;
+            const oldDownloads = payload.old?.downloads ?? 0;
+            const diff = updatedDownloads - oldDownloads;
+            return { ...prev, downloads: prev.downloads + diff };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const fetchFriendsCount = async () => {
@@ -53,27 +111,7 @@ export function Dashboard() {
     } catch (e) { console.error(e); }
   };
 
-  const fetchUserMaterials = async () => {
-    setDataLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('*')
-        .eq('uploaded_by', user.id)
-        .order('created_at', { ascending: false });
-        
-      if (!error && data) {
-        setMaterials(data);
-        const dl = data.reduce((a, c) => a + (c.downloads || 0), 0);
-        const avg = data.length > 0 ? (data.reduce((a, c) => a + (c.rating || 0), 0) / data.length).toFixed(1) : 0;
-        setStats({ uploads: data.length, downloads: dl, rating: avg });
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDataLoading(false);
-    }
-  };
+  // (fetchUserMaterials moved above useEffect as useCallback)
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
@@ -96,6 +134,12 @@ export function Dashboard() {
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Student';
   const xpPct = Math.min(((stats.downloads * 15) / 5000) * 100, 100).toFixed(0);
 
+  // ── Subscription data ──
+  const sub = useSubscription();
+  const UPI_ID = import.meta.env.VITE_UPI_ID || 'studyshare@upi';
+  const upiLink = `upi://pay?pa=${UPI_ID}&pn=StudyShare&am=${sub.price}&cu=INR&tn=${encodeURIComponent('StudyShare ' + sub.planName)}`;
+  const handlePayNow = () => { window.location.href = upiLink; };
+
   return (
     <div className="min-h-screen font-body bg-background text-slate-800 selection:bg-accent-light selection:text-accent-hover">
       <Navbar />
@@ -109,8 +153,17 @@ export function Dashboard() {
                 <Badge variant="blue" className="bg-primary-50 text-primary-600 border-primary-100 font-black uppercase tracking-widest">
                   Academic Profile
                 </Badge>
-                <Badge variant="yellow" className="bg-yellow-50 text-yellow-600 border-yellow-100 font-black uppercase tracking-widest">
+                <Badge
+                  variant="yellow"
+                  className={`font-black uppercase tracking-widest transition-all duration-300 ${
+                    karmaLive
+                      ? 'bg-yellow-400 text-yellow-900 border-yellow-500 scale-110 shadow-lg shadow-yellow-200'
+                      : 'bg-yellow-50 text-yellow-600 border-yellow-100'
+                  }`}
+                >
+                  {karmaLive && <Zap size={12} className="inline mr-1 animate-bounce" />}
                   {stats.downloads * 15} Karma
+                  {karmaLive && ' +⚡'}
                 </Badge>
               </div>
               
@@ -135,9 +188,29 @@ export function Dashboard() {
                 ))}
               </div>
               
-              <Button variant="outline" onClick={() => setIsProfileModalOpen(true)} className="rounded-2xl shadow-sm text-sm border-slate-200 hover:bg-slate-50">
-                Edit Profile ⚙️
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsProfileModalOpen(true)} className="rounded-2xl shadow-sm text-sm border-slate-200 hover:bg-slate-50 flex-1">
+                  Edit Profile ⚙️
+                </Button>
+                <button 
+                  onClick={async () => {
+                    const text = `I have ${stats.uploads} notes and ${stats.downloads * 15} karma on StudyShare! 🚀 Join me in becoming an academic weapon.`;
+                    const url = window.location.origin + "/profile/" + user.id;
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: 'My Study Profile', text, url });
+                      } else {
+                        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
+                        if (confirm("Open WhatsApp to share?")) window.open(whatsappUrl, '_blank');
+                        else { await navigator.clipboard.writeText(url); alert('Profile link copied! 🔗'); }
+                      }
+                    } catch (e) { if (e.name !== 'AbortError') { await navigator.clipboard.writeText(url); alert('Link copied!'); } }
+                  }}
+                  className="flex items-center justify-center gap-2 px-6 bg-white border border-slate-200 rounded-2xl text-slate-700 font-bold text-sm transition-all active:scale-95 shadow-sm hover:bg-slate-50 flex-1"
+                >
+                  <Share2 size={16} className="text-primary-600" /> Share
+                </button>
+              </div>
             </div>
             
             <div className="w-48 h-48 bg-primary-50 rounded-full flex items-center justify-center border-8 border-white shadow-xl flex-shrink-0 relative group-hover:scale-105 transition-transform duration-500">
@@ -150,22 +223,157 @@ export function Dashboard() {
           </div>
         </section>
 
+        {/* ── Subscription Status Card ── */}
+        <section className="mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="relative rounded-[2.5rem] overflow-hidden border-2 border-slate-100 bg-white shadow-sm">
+            {/* Gradient side accent */}
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-[2.5rem]"
+              style={{ background: sub.isSubscribed ? 'linear-gradient(180deg,#22c55e,#16a34a)' : sub.isTrialActive ? 'linear-gradient(180deg,#6366f1,#8b5cf6)' : 'linear-gradient(180deg,#ef4444,#dc2626)' }} />
+
+            <div className="pl-8 pr-6 py-6 flex flex-col md:flex-row items-start md:items-center gap-6 justify-between">
+
+              {/* Left: Status info */}
+              <div className="flex items-center gap-5">
+                <div className="text-4xl shrink-0">
+                  {sub.isSubscribed ? '🎓⚡' : sub.isTrialActive ? '🎁' : '💀'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                      sub.isSubscribed
+                        ? 'bg-green-100 text-green-700'
+                        : sub.isTrialActive
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-red-100 text-red-600'
+                    }`}>
+                      {sub.isSubscribed ? '✅ Active' : sub.isTrialActive ? '⏳ Free Trial' : '❌ Expired'}
+                    </span>
+                    {sub.isPendingVerification && (
+                      <span className="text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+                        ⏳ Payment Under Review
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    {sub.isSubscribed
+                      ? sub.planName
+                      : sub.isTrialActive
+                      ? `Free Trial — ${sub.trialDaysLeft} day${sub.trialDaysLeft !== 1 ? 's' : ''} remaining`
+                      : 'Brain Dead — No Active Plan 💀'}
+                  </h2>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">
+                    {sub.isSubscribed
+                      ? 'You have full access. Keep grinding! 🔥'
+                      : sub.isTrialActive
+                      ? 'Subscribe before it runs out to keep full access.'
+                      : 'Trial expired. Subscribe to unlock everything again.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Middle: Karma → Price calculation */}
+              {!sub.isSubscribed && !sub.isPendingVerification && (
+                <div className="flex-1 bg-slate-50 rounded-2xl border border-slate-100 px-5 py-4 flex items-center gap-5 min-w-0">
+                  <div className="text-center shrink-0">
+                    <div className={`text-2xl font-black ${ karmaLive ? 'text-yellow-500 scale-110 transition-transform' : 'text-slate-900'}`}>
+                      {stats.downloads * 15}
+                      {karmaLive && <Zap size={14} className="inline ml-1 text-yellow-400 animate-bounce" />}
+                    </div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Your Karma</div>
+                  </div>
+
+                  <div className="text-slate-300 text-xl font-black shrink-0">→</div>
+
+                  <div className="text-center shrink-0">
+                    <div className="text-2xl font-black text-slate-900">₹{sub.price}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">/month</div>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-xs font-black px-3 py-1.5 rounded-xl inline-block ${
+                      stats.downloads * 15 >= 100
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {stats.downloads * 15 >= 100
+                        ? '🎓 Scholar Rate Applied!'
+                        : `Upload ${Math.ceil((100 - stats.downloads * 15) / 15)} more downloads to unlock ₹29 rate`}
+                    </div>
+                    <div className="mt-2">
+                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${Math.min((stats.downloads * 15 / 100) * 100, 100)}%`,
+                            background: stats.downloads * 15 >= 100
+                              ? 'linear-gradient(90deg,#22c55e,#16a34a)'
+                              : 'linear-gradient(90deg,#6366f1,#8b5cf6)'
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
+                        <span>0 Karma — ₹39</span>
+                        <span>100 Karma — ₹29 🌟</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Right: CTA buttons */}
+              <div className="flex flex-col gap-2 shrink-0">
+                {sub.isSubscribed ? (
+                  <Link
+                    to="/subscribe"
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-sm rounded-2xl transition-all active:scale-95"
+                  >
+                    🔄 Manage Plan
+                  </Link>
+                ) : sub.isPendingVerification ? (
+                  <div className="flex items-center gap-2 px-5 py-3 bg-amber-50 border border-amber-200 text-amber-700 font-black text-xs rounded-2xl">
+                    ⏳ Verifying payment...
+                  </div>
+                ) : (
+                  <>
+                    {/* Direct UPI Pay button */}
+                    <button
+                      onClick={handlePayNow}
+                      className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-black text-sm text-white transition-all active:scale-95 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                      style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
+                    >
+                      <Zap size={16} className="shrink-0" />
+                      Pay ₹{sub.price} via UPI
+                    </button>
+                    {/* Full subscribe page link */}
+                    <Link
+                      to="/subscribe"
+                      className="text-center text-xs font-bold text-slate-400 hover:text-primary-600 transition-colors py-1"
+                    >
+                      See full plan details →
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Stats Grid */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6 mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <section className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-5 gap-3 md:gap-6 mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
           {[
           { label: "Notes Uploaded", value: stats.uploads, icon: FileText, color: "text-blue-500", bg: "bg-blue-50", link: "/upload" },
-            { label: "Study Karma", value: stats.downloads * 15, icon: Star, color: "text-yellow-500", bg: "bg-yellow-50" },
+            { label: "Study Karma", value: stats.downloads * 15, icon: Star, color: "text-yellow-500", bg: karmaLive ? "bg-yellow-300" : "bg-yellow-50", live: true },
             { label: "Total Downloads", value: stats.downloads, icon: Download, color: "text-green-500", bg: "bg-green-50" },
             { label: "Friends", value: friendsCount, icon: Users, color: "text-indigo-500", bg: "bg-indigo-50", link: "/community" },
             { label: "Average Rating", value: stats.rating || '—', icon: TrendingUp, color: "text-purple-500", bg: "bg-purple-50" }
           ].map((stat, i) => {
             const inner = (
-              <div className="p-6 h-full flex flex-col justify-center">
-                <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                  <stat.icon size={24} />
+              <div className="p-4 md:p-6 h-full flex flex-col justify-center text-center md:text-left">
+                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center mb-3 md:mb-4 mx-auto md:mx-0 group-hover:scale-110 transition-transform`}>
+                  <stat.icon size={20} className="md:w-[24px] md:h-[24px]" />
                 </div>
-                <div className="text-3xl font-display font-black text-slate-900 mb-1 pointer-events-none">{stat.value}</div>
-                <div className="text-sm font-bold text-slate-500 uppercase tracking-widest">{stat.label}</div>
+                <div className="text-xl md:text-3xl font-display font-black text-slate-900 mb-1 pointer-events-none">{stat.value}</div>
+                <div className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">{stat.label}</div>
               </div>
             );
             return stat.link ? (

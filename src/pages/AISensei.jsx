@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Card';
-import { Sparkles, ArrowLeft, Send, Download, Loader2, FileText, Brain, AlertCircle, RefreshCw, UserPlus, UserCheck, MessageCircle } from 'lucide-react';
+import { Sparkles, ArrowLeft, Send, Download, Loader2, FileText, Brain, AlertCircle, RefreshCw, UserPlus, UserCheck, MessageCircle, Share2 } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +24,31 @@ export function AISensei() {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [simulation, setSimulation] = useState(null);
     const [isScanning, setIsScanning] = useState(false);
+
+    const handleShare = async () => {
+        if (!material) return;
+        const url = `${window.location.origin}/material/${material.id}`;
+        const text = `I'm using AI Sensei to study ${material.subject || 'this material'} on StudyShare! 🚀 Join me and degreemax together.`;
+
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: material.title, text, url });
+            } else {
+                const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
+                if (confirm("Open WhatsApp to share this material?")) {
+                    window.open(whatsappUrl, '_blank');
+                } else {
+                    await navigator.clipboard.writeText(url);
+                    alert('Link copied to clipboard! 🔗');
+                }
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                await navigator.clipboard.writeText(url);
+                alert('Link copied! 🔗');
+            }
+        }
+    };
 
     // ── Connect / Friend state ──
     // 'none' | 'pending' | 'incoming' | 'accepted'
@@ -362,6 +387,13 @@ export function AISensei() {
                     )}
 
                     <div className="h-8 w-px bg-white/5 mx-1" />
+                    <button 
+                        onClick={handleShare}
+                        className="p-3 bg-white/5 hover:bg-primary-500/20 text-slate-400 hover:text-primary-400 rounded-xl transition-all active:scale-90"
+                        title="Share Material"
+                    >
+                        <Share2 size={18} />
+                    </button>
                     <Button variant="accent" size="sm" className="gap-2 rounded-xl h-11" onClick={handleDownload}>
                         <Download size={18} /> Download
                     </Button>

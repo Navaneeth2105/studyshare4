@@ -786,24 +786,158 @@ export function ChillZone() {
                     {/* ── GROUP CHAT ── */}
                     {chatView === CHAT.GROUP && (
                         <>
-                            {/* Channel Header */}
-                            <div className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-slate-950/40 backdrop-blur-md shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-primary-500/10 rounded-lg">
-                                        <Hash size={18} className="text-primary-400" />
+                            {/* Channel Header / Mobile Switcher */}
+                            <div className="h-auto md:h-16 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between px-4 md:px-6 bg-slate-950/40 backdrop-blur-md shrink-0 py-3 md:py-0">
+                                <div className="flex items-center justify-between md:justify-start w-full md:w-auto mb-3 md:mb-0">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-primary-500/10 rounded-lg">
+                                            {chatView === CHAT.DM ? <MessageCircle size={18} className="text-primary-400" /> : <Hash size={18} className="text-primary-400" />}
+                                        </div>
+                                        <span className="font-display font-black text-white text-lg md:text-xl italic truncate max-w-[120px] md:max-w-none">
+                                            {chatView === CHAT.DM ? dmPartner?.name : activeChannel}
+                                        </span>
                                     </div>
-                                    <span className="font-display font-black text-white text-xl italic">{activeChannel}</span>
-                                    <div className="h-4 w-px bg-white/10 mx-2 hidden sm:block" />
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden md:inline-block">
-                                        Quantum Real-time Active
-                                    </span>
+
+                                    {/* Mobile Only: Tab Switcher Trigger / Quick Nav */}
+                                    <div className="flex md:hidden items-center gap-2">
+                                        <button 
+                                            onClick={() => setSidebarView(SIDEBAR.CHANNELS)}
+                                            className={`p-2 rounded-xl transition-all ${sidebarView === SIDEBAR.CHANNELS ? 'bg-primary-600 text-white' : 'text-slate-500 bg-white/5'}`}
+                                        >
+                                            <Hash size={16} />
+                                        </button>
+                                        <button 
+                                            onClick={() => setSidebarView(SIDEBAR.FRIENDS)}
+                                            className={`p-2 rounded-xl relative transition-all ${sidebarView === SIDEBAR.FRIENDS ? 'bg-primary-600 text-white' : 'text-slate-500 bg-white/5'}`}
+                                        >
+                                            <Users size={16} />
+                                            {incomingReqs.length > 0 && (
+                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-[7px] font-black flex items-center justify-center">
+                                                    {incomingReqs.length}
+                                                </span>
+                                            )}
+                                        </button>
+                                        <button 
+                                            onClick={() => setSidebarView(SIDEBAR.DMS)}
+                                            className={`p-2 rounded-xl transition-all ${sidebarView === SIDEBAR.DMS ? 'bg-primary-600 text-white' : 'text-slate-500 bg-white/5'}`}
+                                        >
+                                            <MessageCircle size={16} />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="hidden sm:flex items-center gap-2">
-                                    {['🔥', '💀', '💯', '🙏'].map(e => (
-                                        <button key={e} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 transition-all hover:scale-125 text-lg">{e}</button>
-                                    ))}
+
+                                {/* Desktop only badges */}
+                                <div className="hidden md:flex items-center gap-4">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                        {chatView === CHAT.DM ? '🔒 Private Chat' : 'Quantum Real-time Active'}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {['🔥', '💀', '💯', '🙏'].map(e => (
+                                            <button key={e} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 transition-all hover:scale-125 text-lg">{e}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                {/* Mobile view content when sidebar items are selected */}
+                                <div className="md:hidden">
+                                    {sidebarView !== SIDEBAR.CHANNELS && sidebarView !== SIDEBAR.DMS && (
+                                        <div className="mt-2 text-[10px] font-black text-primary-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Sparkles size={10} /> Showing {sidebarView} List
+                                        </div>
+                                    )}
                                 </div>
                             </div>
+
+                            {/* Mobile Sidebar Overlay (when in Friends or DMs view on mobile) */}
+                            {sidebarView !== SIDEBAR.CHANNELS && chatView === CHAT.GROUP && (
+                                <div className="md:hidden absolute inset-x-0 top-[110px] bottom-0 z-20 bg-slate-950 overflow-y-auto p-4">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-white">
+                                            {sidebarView === SIDEBAR.FRIENDS ? 'Squad & Connections' : 'Private DMs'}
+                                        </h3>
+                                        <button 
+                                            onClick={() => setSidebarView(SIDEBAR.CHANNELS)}
+                                            className="text-xs font-bold text-slate-500"
+                                        >
+                                            Back to Chat
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Reuse the sidebar content logic but styled for mobile full width */}
+                                    {sidebarView === SIDEBAR.FRIENDS && (
+                                        <div className="space-y-6">
+                                            {/* Incoming Requests */}
+                                            {incomingReqs.length > 0 && (
+                                                <div className="space-y-3">
+                                                    <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest">Requests</h4>
+                                                    {incomingReqs.map(req => (
+                                                        <div key={req.friendshipId} className="flex items-center gap-3 p-4 rounded-2xl bg-primary-500/10 border border-primary-500/20">
+                                                            <div className="w-10 h-10 rounded-xl bg-primary-600/20 flex items-center justify-center text-xl">🎓</div>
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-black text-white">{req.name}</p>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => acceptFriendRequest(req.friendshipId, req.requester_id, req.name)} className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400"><Check size={16} /></button>
+                                                                <button onClick={() => rejectFriendRequest(req.friendshipId)} className="p-2 rounded-xl bg-red-500/20 text-red-400"><X size={16} /></button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Friends List */}
+                                            <div className="space-y-3">
+                                                <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Connected</h4>
+                                                {friendProfiles.length === 0 ? (
+                                                    <p className="text-xs text-slate-600 italic">No connections yet. Go find some academic weapons!</p>
+                                                ) : (
+                                                    <div className="grid grid-cols-1 gap-3">
+                                                        {friendProfiles.map(fp => (
+                                                            <div 
+                                                                key={fp.id} 
+                                                                onClick={() => openDm({ id: fp.id, name: fp.full_name || fp.username, avatar: '🎓' })}
+                                                                className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10"
+                                                            >
+                                                                <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center text-xl">🎓</div>
+                                                                <div className="flex-1">
+                                                                    <p className="text-sm font-black text-white">{fp.full_name || fp.username}</p>
+                                                                </div>
+                                                                <MessageCircle size={16} className="text-primary-400" />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {sidebarView === SIDEBAR.DMS && (
+                                        <div className="space-y-4">
+                                            {dmConversations.length === 0 ? (
+                                                <div className="text-center py-10">
+                                                    <p className="text-sm text-slate-500">No private chats yet.</p>
+                                                    <Button variant="outline" size="sm" className="mt-4" onClick={() => setSidebarView(SIDEBAR.FRIENDS)}>Message a Friend</Button>
+                                                </div>
+                                            ) : (
+                                                dmConversations.map((c, i) => (
+                                                    <div 
+                                                        key={i} 
+                                                        onClick={() => openDm({ id: c.partnerId, name: c.partnerName, avatar: '🎓' })}
+                                                        className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10"
+                                                    >
+                                                        <div className="w-10 h-10 rounded-xl bg-primary-600/20 flex items-center justify-center text-xl">🎓</div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-black text-white">{c.partnerName}</p>
+                                                            <p className="text-xs text-slate-500 truncate">{c.lastMsg}</p>
+                                                        </div>
+                                                        <span className="text-[10px] text-slate-600">{timeStr(c.lastTime)}</span>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Messages */}
                             <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 no-scrollbar relative">

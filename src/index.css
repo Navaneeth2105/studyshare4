@@ -56,6 +56,9 @@
   /* Backgrounds: Off-white -> Anti-glare/Fatigue */
   --color-background: #f8fafc;
   --color-surface: #ffffff;
+
+  /* Breakpoints */
+  --breakpoint-xs: 380px;
 }
 
 body {
@@ -114,3 +117,54 @@ body {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-500 font-black;
   }
 }
+
+/* ===== MOBILE-ONLY STYLES (max-width: 767px) ===== */
+/* These styles ONLY apply to mobile — desktop/laptop is 100% untouched */
+@media (max-width: 767px) {
+
+  /* Clear bottom nav (64px) + safe-area (notch) */
+  main {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Safe area utility for bottom nav */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Remove tap flash on mobile Chrome */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Smooth momentum scroll */
+  html {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Horizontal scroll container (GFG-style content row) */
+  .mobile-scroll-x {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .mobile-scroll-x::-webkit-scrollbar { display: none; }
+  .mobile-scroll-x > * {
+    flex: 0 0 80vw;
+    scroll-snap-align: start;
+  }
+
+  /* Reduce border-radius on mobile for more content density */
+  .rounded-\[2\.5rem\] { border-radius: 1.25rem !important; }
+  .rounded-\[3rem\]    { border-radius: 1.5rem  !important; }
+
+  /* Floating background emojis hidden on mobile (reduces visual noise) */
+  .animate-float { display: none; }
+
+  /* Tighter section padding on mobile */
+  section { margin-bottom: 2.5rem !important; }
+}

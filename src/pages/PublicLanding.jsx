@@ -253,76 +253,114 @@ export function PublicLanding() {
 
             {/* ===== PRICING ===== */}
             <section id="pricing" className="py-24 px-6">
-                <div className="max-w-4xl mx-auto text-center">
-                    <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-2 mb-6">
-                        <span className="text-xs font-black uppercase tracking-widest text-amber-300">💸 Ridiculously Affordable</span>
+                <div className="max-w-5xl mx-auto">
+
+                    {/* Section Header */}
+                    <div className="text-center mb-6">
+                        <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-2 mb-6">
+                            <span className="text-xs font-black uppercase tracking-widest text-amber-300">💸 Ridiculously Affordable</span>
+                        </div>
+                        <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
+                            Pick Your <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Study Mode</span>
+                        </h2>
+                        <p className="text-slate-400 text-lg font-medium max-w-xl mx-auto">No hidden fees. No BS. Just pure grind value.</p>
                     </div>
-                    <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
-                        One Plan. <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Everything Unlocked.</span>
-                    </h2>
-                    <p className="text-slate-400 text-lg font-medium mb-16 max-w-xl mx-auto">No tiers. No hidden fees. No BS. Just pure student value.</p>
 
-                    {/* Pricing Card */}
-                    <div className="relative max-w-md mx-auto">
-                        {/* Glow Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 to-violet-500/30 rounded-[2.5rem] blur-2xl scale-105 -z-10" />
-
-                        <div className="relative bg-gradient-to-br from-[#0f1629] to-[#0a0e1c] border border-white/15 rounded-[2.5rem] p-10 overflow-hidden">
-                            {/* Top Badge */}
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                <div className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-black uppercase tracking-widest px-6 py-2 rounded-full shadow-lg">
-                                    Most Popular ✨
+                    {/* 🎉 15-Day Free Trial Banner */}
+                    <div className="relative mb-12 mx-auto max-w-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 rounded-3xl blur-xl -z-10" />
+                        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/25 rounded-3xl px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="text-4xl">🎁</div>
+                                <div className="text-left">
+                                    <p className="text-emerald-300 font-black text-lg">15-Day FREE Trial</p>
+                                    <p className="text-slate-400 text-sm font-medium">No payment needed to start. Full access, zero risk. Try before you grind.</p>
                                 </div>
                             </div>
+                            <Link
+                                to="/auth"
+                                state={{ isSignUp: true }}
+                                className="shrink-0 group flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-emerald-500/25 hover:scale-105 whitespace-nowrap"
+                            >
+                                Start Free Trial <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                            </Link>
+                        </div>
+                    </div>
 
-                            {/* Decorative corner accent */}
-                            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-full blur-2xl" />
+                    {/* Two Plan Cards */}
+                    <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
 
+                        {/* Plan 1: Brain Rot Beginner — ₹39 */}
+                        <div className="relative bg-gradient-to-br from-[#0f1629] to-[#0a0e1c] border border-white/10 rounded-[2rem] p-8 overflow-hidden hover:border-indigo-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/8 rounded-full blur-2xl" />
                             <div className="relative">
-                                <div className="mb-2">
-                                    <span className="text-2xl font-bold text-slate-400">Just</span>
+                                <div className="text-3xl mb-3">🧠💀</div>
+                                <h3 className="text-xl font-black text-white mb-1">Brain Rot Beginner</h3>
+                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-5">For all karma levels</p>
+                                <div className="flex items-start gap-1 mb-1">
+                                    <span className="text-xl font-black text-slate-400 mt-1">₹</span>
+                                    <span className="text-6xl font-black leading-none bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">39</span>
                                 </div>
-
-                                {/* Price */}
-                                <div className="flex items-start justify-center gap-1 mb-1">
-                                    <span className="text-3xl font-black text-white mt-3">₹</span>
-                                    <span className="text-8xl font-black leading-none bg-gradient-to-r from-indigo-300 via-violet-300 to-pink-300 bg-clip-text text-transparent">39</span>
-                                </div>
-                                <p className="text-slate-400 font-bold mb-1">per month</p>
-                                <p className="text-xs text-slate-600 font-medium mb-8">= ₹1.3 per day. Less than a chai ☕</p>
-
-                                {/* Features */}
-                                <ul className="space-y-4 mb-10 text-left">
-                                    {[
-                                        'Unlimited study material downloads',
-                                        'AI Sensei — unlimited chat sessions',
-                                        'Upload & share your own materials',
-                                        'Access Chill Zone community',
-                                        'New materials added daily',
-                                        'Works on any device, anywhere',
-                                    ].map(feature => (
-                                        <li key={feature} className="flex items-center gap-3">
-                                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                                                <Check size={12} className="text-white font-black" strokeWidth={3} />
+                                <p className="text-slate-500 text-xs font-bold mb-6">per month · ₹1.3/day</p>
+                                <ul className="space-y-2.5 mb-7">
+                                    {['All study materials', 'AI Sensei chats', 'Chill Zone access', 'Upload & earn karma', 'Career Skills tracks'].map(f => (
+                                        <li key={f} className="flex items-center gap-2.5 text-sm text-slate-300 font-medium">
+                                            <div className="w-4 h-4 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                                                <Check size={10} className="text-indigo-400" strokeWidth={3} />
                                             </div>
-                                            <span className="text-sm font-semibold text-slate-300">{feature}</span>
+                                            {f}
                                         </li>
                                     ))}
                                 </ul>
-
                                 <Link
                                     to="/auth"
                                     state={{ isSignUp: true }}
-                                    id="pricing-cta"
-                                    className="group w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-pink-500 hover:from-indigo-400 hover:via-violet-400 hover:to-pink-400 text-white font-black text-lg py-5 rounded-2xl transition-all duration-300 shadow-2xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02] hover:-translate-y-0.5"
+                                    id="plan-basic-cta"
+                                    className="group w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-indigo-500/20 border border-white/10 hover:border-indigo-500/40 text-white font-black py-4 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-95"
                                 >
-                                    Start for ₹39/month
-                                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                    Start for ₹39/mo <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                                 </Link>
+                            </div>
+                        </div>
 
-                                <p className="text-center text-xs text-slate-600 font-medium mt-4">
-                                    🔒 Secure payment · Cancel anytime · Instant access
-                                </p>
+                        {/* Plan 2: Certified Academic Weapon — ₹29 */}
+                        <div className="relative overflow-hidden rounded-[2rem] hover:-translate-y-1 transition-all duration-300 hover:shadow-2xl hover:shadow-violet-500/20">
+                            {/* Glow */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/30 to-pink-500/30 rounded-[2rem] blur-2xl scale-105 -z-10" />
+                            <div className="relative bg-gradient-to-br from-violet-600/20 to-pink-600/10 border border-violet-500/30 rounded-[2rem] p-8 h-full">
+                                {/* Hot badge */}
+                                <div className="absolute top-4 right-4">
+                                    <div className="bg-gradient-to-r from-violet-500 to-pink-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
+                                        💰 Karma Discount
+                                    </div>
+                                </div>
+                                <div className="text-3xl mb-3">🎓⚡</div>
+                                <h3 className="text-xl font-black text-white mb-1">Certified Academic Weapon</h3>
+                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-5">Karma ≥ 100 unlocks this price</p>
+                                <div className="flex items-start gap-1 mb-1">
+                                    <span className="text-xl font-black text-slate-400 mt-1">₹</span>
+                                    <span className="text-6xl font-black leading-none bg-gradient-to-r from-violet-300 to-pink-300 bg-clip-text text-transparent">29</span>
+                                </div>
+                                <p className="text-slate-500 text-xs font-bold mb-1">per month · ₹0.97/day</p>
+                                <p className="text-xs text-violet-400 font-black mb-5">🌟 Upload notes → earn Karma → pay less!</p>
+                                <ul className="space-y-2.5 mb-7">
+                                    {['Everything in Brain Rot Beginner', 'Price auto-drops at 100 Karma', 'Flex your Scholar badge 💎', 'Priority AI responses', 'Top of leaderboard glory'].map(f => (
+                                        <li key={f} className="flex items-center gap-2.5 text-sm text-slate-300 font-medium">
+                                            <div className="w-4 h-4 rounded-full bg-violet-500/20 border border-violet-500/40 flex items-center justify-center shrink-0">
+                                                <Check size={10} className="text-violet-400" strokeWidth={3} />
+                                            </div>
+                                            {f}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <Link
+                                    to="/auth"
+                                    state={{ isSignUp: true }}
+                                    id="plan-weapon-cta"
+                                    className="group w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-500 to-pink-500 hover:from-violet-400 hover:to-pink-400 text-white font-black py-4 rounded-xl transition-all duration-300 shadow-lg shadow-violet-500/30 hover:scale-[1.02] active:scale-95"
+                                >
+                                    Become a Weapon <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -331,7 +369,7 @@ export function PublicLanding() {
                     <div className="mt-10 grid grid-cols-3 gap-4 max-w-xl mx-auto">
                         {[
                             { label: 'Samosa', price: '₹25', emoji: '🥟' },
-                            { label: 'StudyShare', price: '₹39/mo', emoji: '📚', highlight: true },
+                            { label: 'StudyShare', price: '₹29–39/mo', emoji: '📚', highlight: true },
                             { label: 'One coffee', price: '₹80', emoji: '☕' },
                         ].map(({ label, price, emoji, highlight }) => (
                             <div key={label} className={`rounded-2xl p-4 text-center border transition-all ${highlight ? 'bg-indigo-500/15 border-indigo-500/30 shadow-lg shadow-indigo-500/10' : 'bg-white/3 border-white/8'}`}>

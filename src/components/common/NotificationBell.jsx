@@ -120,24 +120,28 @@ export function NotificationBell({ isDarkPage }) {
 
             {/* ── Dropdown Panel ── */}
             {open && (
-                <div className="absolute right-0 top-12 w-[380px] bg-slate-950 border border-white/10 rounded-[1.75rem] shadow-2xl shadow-black/40 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 md:right-0 top-14 w-[calc(100vw-2rem)] sm:w-[380px] bg-slate-950/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-4 duration-300 ring-1 ring-white/5">
 
                     {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-                        <div className="flex items-center gap-2">
-                            <Bell size={16} className="text-primary-400" />
-                            <span className="font-display font-black text-white text-sm">Notifications</span>
-                            {unreadCount > 0 && (
-                                <span className="text-[10px] font-black text-white bg-red-500 rounded-full px-2 py-0.5">
-                                    {unreadCount} new
-                                </span>
-                            )}
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 bg-white/[0.02]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-primary-500/20 flex items-center justify-center">
+                                <Bell size={16} className="text-primary-400" />
+                            </div>
+                            <div>
+                                <span className="font-display font-black text-white text-sm block">Notifications</span>
+                                {unreadCount > 0 && (
+                                    <span className="text-[9px] font-black text-primary-400 uppercase tracking-widest animate-pulse">
+                                        {unreadCount} UNREAD
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             {notifications.length > 0 && (
                                 <button
                                     onClick={markAllRead}
-                                    className="text-[10px] font-black text-slate-500 hover:text-primary-400 transition-colors flex items-center gap-1 uppercase tracking-widest"
+                                    className="text-[9px] font-black text-slate-500 hover:text-primary-400 transition-colors flex items-center gap-1.5 uppercase tracking-widest bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/5"
                                     title="Mark all as read"
                                 >
                                     <CheckCheck size={12} /> All read
@@ -145,27 +149,27 @@ export function NotificationBell({ isDarkPage }) {
                             )}
                             <button
                                 onClick={() => setOpen(false)}
-                                className="p-1 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all"
+                                className="p-2 rounded-xl text-slate-600 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
                             >
-                                <X size={14} />
+                                <X size={16} />
                             </button>
                         </div>
                     </div>
 
                     {/* List */}
-                    <div className="max-h-[420px] overflow-y-auto">
+                    <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
                         {loading ? (
-                            <div className="flex items-center justify-center py-10">
-                                <div className="w-5 h-5 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
+                            <div className="flex items-center justify-center py-20">
+                                <div className="w-8 h-8 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
                             </div>
                         ) : notifications.length === 0 ? (
-                            <div className="text-center py-12 px-6">
-                                <div className="text-4xl mb-3">🔔</div>
-                                <p className="text-slate-500 text-sm font-bold">You're all caught up!</p>
-                                <p className="text-slate-700 text-xs mt-1">Connect with students to get notifications</p>
+                            <div className="text-center py-16 px-8">
+                                <div className="text-5xl mb-4 grayscale opacity-50">🔔</div>
+                                <p className="text-white font-black text-sm uppercase tracking-widest">Quiet Zone</p>
+                                <p className="text-slate-600 text-[10px] font-bold mt-2 leading-relaxed">No new alerts. Connect with more students to see activity here!</p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-white/[0.04]">
+                            <div className="divide-y divide-white/[0.05]">
                                 {notifications.map((notif) => {
                                     const meta = TYPE_META[notif.type] || TYPE_META.message;
                                     const isFriendReq = notif.type === 'friend_request';
@@ -173,54 +177,55 @@ export function NotificationBell({ isDarkPage }) {
                                     return (
                                         <div
                                             key={notif.id}
-                                            className={`flex gap-3 px-4 py-3.5 transition-colors ${!notif.is_read ? 'bg-primary-500/[0.04]' : ''} hover:bg-white/[0.03]`}
+                                            className={`relative flex gap-4 px-6 py-5 transition-all ${!notif.is_read ? 'bg-primary-500/[0.04]' : 'hover:bg-white/[0.02]'}`}
                                         >
+                                            {!notif.is_read && (
+                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500" />
+                                            )}
+
                                             {/* Type Icon */}
-                                            <div className={`w-9 h-9 rounded-xl ${meta.bg} ${meta.text} ${meta.border} border flex items-center justify-center shrink-0 mt-0.5`}>
+                                            <div className={`w-10 h-10 rounded-2xl ${meta.bg} ${meta.text} ${meta.border} border flex items-center justify-center shrink-0 mt-0.5 shadow-sm`}>
                                                 {meta.icon}
                                             </div>
 
                                             {/* Content */}
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-start justify-between gap-2">
+                                                <div className="flex items-start justify-between gap-3">
                                                     <div className="flex-1 min-w-0">
-                                                        <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${meta.text}`}>
-                                                            {meta.label}
-                                                        </p>
-                                                        <p className="text-sm font-bold text-white leading-snug">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${meta.text}`}>
+                                                                {meta.label}
+                                                            </p>
+                                                            <span className="w-1 h-1 rounded-full bg-slate-800" />
+                                                            <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">
+                                                                {timeAgo(notif.created_at)}
+                                                            </p>
+                                                        </div>
+                                                        <p className="text-[13px] font-bold text-slate-200 leading-snug">
                                                             {notif.message}
                                                         </p>
-                                                        <p className="text-[10px] text-slate-600 font-bold mt-1">
-                                                            {timeAgo(notif.created_at)}
-                                                        </p>
                                                     </div>
-                                                    {/* Unread dot */}
-                                                    <div className="flex items-center gap-1 shrink-0 mt-1">
-                                                        {!notif.is_read && (
-                                                            <div className="w-2 h-2 rounded-full bg-primary-500 shadow-[0_0_6px_#6366f1]" />
-                                                        )}
-                                                        <button
-                                                            onClick={() => dismiss(notif.id)}
-                                                            className="p-1 rounded-lg text-slate-700 hover:text-red-400 hover:bg-white/5 transition-all"
-                                                            title="Dismiss"
-                                                        >
-                                                            <X size={12} />
-                                                        </button>
-                                                    </div>
+                                                    
+                                                    <button
+                                                        onClick={() => dismiss(notif.id)}
+                                                        className="p-1.5 rounded-lg text-slate-700 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0 active:scale-90"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
                                                 </div>
 
                                                 {/* ── Actionable Buttons ── */}
                                                 {isFriendReq && (
-                                                    <div className="flex gap-2 mt-2.5">
+                                                    <div className="flex gap-2 mt-4">
                                                         <button
                                                             onClick={() => handleAccept(notif)}
-                                                            className="flex items-center gap-1.5 text-[11px] font-black text-white bg-primary-600 hover:bg-primary-500 rounded-xl px-3 py-1.5 transition-all active:scale-95"
+                                                            className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-black text-white bg-primary-600 hover:bg-primary-500 rounded-xl py-2.5 transition-all active:scale-95 shadow-lg shadow-primary-950/20 uppercase tracking-widest"
                                                         >
                                                             <Check size={12} /> Accept
                                                         </button>
                                                         <button
                                                             onClick={() => handleReject(notif)}
-                                                            className="flex items-center gap-1.5 text-[11px] font-black text-slate-400 bg-white/5 hover:bg-red-500/15 hover:text-red-400 rounded-xl px-3 py-1.5 transition-all border border-white/5"
+                                                            className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-black text-slate-400 bg-white/5 hover:bg-white/10 rounded-xl py-2.5 transition-all border border-white/5 uppercase tracking-widest"
                                                         >
                                                             <X size={12} /> Decline
                                                         </button>
@@ -228,16 +233,16 @@ export function NotificationBell({ isDarkPage }) {
                                                 )}
 
                                                 {notif.type === 'message' && (
-                                                    <Link to="/community" onClick={() => { setOpen(false); markRead(notif.id); }}>
-                                                        <button className="flex items-center gap-1.5 text-[11px] font-black text-accent-400 bg-accent-500/10 hover:bg-accent-500/20 rounded-xl px-3 py-1.5 mt-2 transition-all border border-accent-500/20">
+                                                    <Link to="/community" onClick={() => { setOpen(false); markRead(notif.id); }} className="block mt-4">
+                                                        <button className="w-full flex items-center justify-center gap-2 text-[10px] font-black text-accent-400 bg-accent-500/10 hover:bg-accent-500/20 rounded-xl py-2.5 transition-all border border-accent-500/20 uppercase tracking-widest">
                                                             <MessageCircle size={12} /> Open Chat
                                                         </button>
                                                     </Link>
                                                 )}
 
                                                 {notif.type === 'accepted' && (
-                                                    <Link to="/community" onClick={() => { setOpen(false); markRead(notif.id); }}>
-                                                        <button className="flex items-center gap-1.5 text-[11px] font-black text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl px-3 py-1.5 mt-2 transition-all border border-emerald-500/20">
+                                                    <Link to="/community" onClick={() => { setOpen(false); markRead(notif.id); }} className="block mt-4">
+                                                        <button className="w-full flex items-center justify-center gap-2 text-[10px] font-black text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl py-2.5 transition-all border border-emerald-500/20 uppercase tracking-widest">
                                                             <MessageCircle size={12} /> Send DM
                                                         </button>
                                                     </Link>
@@ -251,13 +256,14 @@ export function NotificationBell({ isDarkPage }) {
                     </div>
 
                     {/* Footer */}
-                    {notifications.length > 0 && (
-                        <div className="px-5 py-3 border-t border-white/5 flex items-center justify-center">
-                            <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-                                Notifications auto-clear after 30 days
-                            </p>
-                        </div>
-                    )}
+                    <div className="px-6 py-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
+                        <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">
+                            Syncing Live
+                        </p>
+                        <Link to="/community" onClick={() => setOpen(false)} className="text-[9px] font-black text-primary-400 hover:text-primary-300 uppercase tracking-widest hover:underline">
+                            Community Updates →
+                        </Link>
+                    </div>
                 </div>
             )}
 
